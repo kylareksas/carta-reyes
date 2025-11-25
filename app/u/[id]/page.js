@@ -1,26 +1,32 @@
 "use client";
 import { useState, useEffect } from "react";
-import { db } from "../../firebase"; // Asegúrate de que la ruta a firebase es correcta (sube 2 niveles)
+import { db } from "../../firebase"; // Asegúrate de que esta ruta sube 2 niveles
 import { collection, query, where, orderBy, getDocs, doc, getDoc } from "firebase/firestore";
 
-// Esta es la página pública que verán los visitantes
 export default function PublicPage({ params }) {
   const [profile, setProfile] = useState(null);
   const [wishes, setWishes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const userId = params.id; // Obtenemos el ID de la URL
+        const userId = params.id; 
 
-        // 1. Cargar el Perfil del Usuario (Imagen y Texto)
+        // 1. Cargar el Perfil (User)
+        // Intentamos leer el documento en 'users'. Si falla por permisos, saltará al catch.
         const userDoc = await getDoc(doc(db, "users", userId));
+        
         if (userDoc.exists()) {
             setProfile(userDoc.data());
+        } else {
+            setErrorMsg("No hemos encontrado el perfil de este usuario.");
+            setLoading(false);
+            return; // Paramos aquí si no hay usuario
         }
 
-        // 2. Cargar sus deseos
+        // 2. Cargar los Deseos (Wishes)
         const q = query(
             collection(db, "wishes"), 
             where("uid", "==", userId),
@@ -31,16 +37,24 @@ export default function PublicPage({ params }) {
         
       } catch (error) {
         console.error(error);
+        setErrorMsg("Error cargando la carta. " + error.message);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
+    if(params.id) fetchData();
   }, [params.id]);
 
   if (loading) return <div className="text-center p-10">Cargando la carta real... 👑</div>;
-  if (!profile) return <div className="text-center p-10">Esta carta no existe 😢</div>;
+  
+  if (errorMsg || !profile) return (
+      <div className="text-center p-10 bg-amber-50 h-screen flex flex-col items-center justify-center">
+          <h1 className="text-2xl font-bold text-red-600 mb-2">¡Vaya! 😢</h1>
+          <p>{errorMsg}</p>
+          <a href="/" className="mt-4 underline text-blue-600">Volver al inicio</a>
+      </div>
+  );
 
   return (
     <main className="min-h-screen bg-amber-50 flex flex-col items-center p-4 md:p-8 font-serif text-slate-800">
@@ -51,12 +65,12 @@ export default function PublicPage({ params }) {
         <h1 className="text-4xl font-bold text-center text-red-700 mb-2 mt-4">👑👑👑</h1>
         <h2 className="text-3xl font-bold text-center text-slate-800 mb-6">Carta a los Reyes Magos</h2>
         
-        {/* MENSAJE PERSONALIZADO DEL USUARIO */}
+        {/* MENSAJE PERSONALIZADO */}
         <p className="text-center text-slate-600 mb-8 italic text-lg">
             "{profile.title}"
         </p>
 
-        {/* LISTA (SOLO LECTURA) */}
+        {/* LISTA DE REGALOS */}
         <div className="space-y-4 mb-10">
             {wishes.length === 0 ? (
                 <p className="text-center text-gray-400">Aún no hay deseos en esta lista.</p>
@@ -69,13 +83,14 @@ export default function PublicPage({ params }) {
             )}
         </div>
 
-        {/* IMAGEN PERSONALIZADA DEL USUARIO */}
+        {/* IMAGEN PERSONALIZADA */}
         <div className="mt-8 mb-2">
-            {/* Usamos img normal en vez de Image de Next para permitir URLs externas sin configurar dominios */}
             <img 
                 src={profile.image} 
                 alt="Navidad" 
-                className="w-full h-auto rounded-xl shadow-sm border-2 border-amber-500/30 object-cover max-h-[400px]" 
+                // Usamos onError para cargar una imagen de seguridad si la URL del usuario falla
+                onError={(e) => { e.target.onerror = null; e.target.src = "/guts.png" }}
+                className="w-full h-auto rounded-xl shadow-sm border-2 border-amber-500/30 object-cover max-h-[500px]" 
             />
         </div>
 

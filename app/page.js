@@ -22,6 +22,7 @@ export default function Dashboard() {
   const [customImage, setCustomImage] = useState("/guts.png");
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
+  // Evitar problemas de hidratación con Drag&Drop
   useEffect(() => {
     const animation = requestAnimationFrame(() => setEnabled(true));
     return () => cancelAnimationFrame(animation);
@@ -32,11 +33,16 @@ export default function Dashboard() {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
-        // Cargar perfil del usuario (mensaje y foto)
-        const userDoc = await getDoc(doc(db, "users", currentUser.uid));
-        if (userDoc.exists()) {
-            setCustomTitle(userDoc.data().title || "Este año he intentado ser muy bueno...");
-            setCustomImage(userDoc.data().image || "/guts.png");
+        // Cargar perfil del usuario (mensaje y foto) de la base de datos
+        try {
+            const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+            if (userDoc.exists()) {
+                const data = userDoc.data();
+                setCustomTitle(data.title || "Este año he intentado ser muy bueno...");
+                setCustomImage(data.image || "/guts.png");
+            }
+        } catch (error) {
+            console.error("Error cargando perfil:", error);
         }
       } else {
         setWishes([]);
@@ -71,17 +77,19 @@ export default function Dashboard() {
     const password = e.target.password.value;
     try {
         if (isRegistering) {
+            // 1. Crear usuario en Auth
             const userCred = await createUserWithEmailAndPassword(auth, email, password);
-            // Crear perfil inicial
+            // 2. Crear documento de perfil en Firestore AUTOMÁTICAMENTE
             await setDoc(doc(db, "users", userCred.user.uid), {
-                title: "¡Hola Reyes Magos!",
-                image: "https://media.giphy.com/media/3o6fJdYXewShagRgRv/giphy.gif" // Imagen por defecto graciosa
+                title: "¡Hola Reyes Magos! Esta es mi lista",
+                image: "/guts.png", // Imagen por defecto
+                email: email
             });
         } else {
             await signInWithEmailAndPassword(auth, email, password);
         }
     } catch (error) {
-        alert(error.message);
+        alert("Error de autenticación: " + error.message);
     }
   };
 
@@ -89,13 +97,16 @@ export default function Dashboard() {
     if (!user) return;
     setIsSavingProfile(true);
     try {
+        // Guardar/Actualizar configuración
         await setDoc(doc(db, "users", user.uid), {
             title: customTitle,
-            image: customImage
+            image: customImage,
+            email: user.email // Guardamos email por si acaso
         }, { merge: true });
-        alert("¡Perfil actualizado!");
+        alert("¡Perfil actualizado con éxito!");
     } catch (e) {
-        alert("Error guardando perfil");
+        console.error(e);
+        alert("Error guardando perfil: " + e.message);
     }
     setIsSavingProfile(false);
   };
@@ -114,7 +125,7 @@ export default function Dashboard() {
   };
 
   const handleDelete = async (id) => {
-    if (confirm("¿Borrar?")) await deleteDoc(doc(db, "wishes", id));
+    if (confirm("¿Borrar deseo?")) await deleteDoc(doc(db, "wishes", id));
   };
 
   const handleOnDragEnd = async (result) => {
@@ -173,7 +184,7 @@ export default function Dashboard() {
                 />
 
                 <label className="block text-sm font-bold text-gray-600 mb-1">Imagen (URL):</label>
-                <p className="text-xs text-gray-400 mb-1">Copia y pega un enlace de una imagen de Google/Pinterest</p>
+                <p className="text-xs text-gray-400 mb-1">Usa "/guts.png" o pega una URL de internet.</p>
                 <input 
                     type="text" 
                     value={customImage} 
@@ -189,12 +200,12 @@ export default function Dashboard() {
 
             <div className="bg-green-100 p-6 rounded-xl border border-green-300">
                 <h2 className="text-lg font-bold text-green-800 mb-2">🌍 Tu Enlace Público</h2>
-                <p className="text-sm text-green-700 mb-3">Envía esto a tus amigos, clientes o familiares:</p>
-                <div className="bg-white p-3 rounded border border-green-200 text-sm break-all font-mono select-all">
+                <p className="text-sm text-green-700 mb-3">Comparte este enlace:</p>
+                <div className="bg-white p-3 rounded border border-green-200 text-sm break-all font-mono select-all mb-2">
                     {typeof window !== 'undefined' ? `${window.location.origin}/u/${user.uid}` : 'Cargando...'}
                 </div>
-                <a href={`/u/${user.uid}`} target="_blank" className="block text-center mt-3 text-green-700 font-bold underline">
-                    Ver cómo queda mi carta &rarr;
+                <a href={`/u/${user.uid}`} target="_blank" className="block text-center text-green-700 font-bold underline">
+                    Probara abrir mi carta &rarr;
                 </a>
             </div>
 
@@ -231,7 +242,7 @@ export default function Dashboard() {
                                         >
                                             <div className="flex items-center gap-2">
                                                 <span className="text-gray-400 cursor-grab">::</span>
-                                                <span>{wish.text}</span>
+                                                <span className="break-all">{wish.text}</span>
                                             </div>
                                             <button onClick={() => handleDelete(wish.id)} className="text-red-500 font-bold px-2">x</button>
                                         </div>
