@@ -10,7 +10,8 @@ export default function PublicPage() {
   const [wishes, setWishes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [showDonate, setShowDonate] = useState(false); // Estado para el modal
+  const [showDonate, setShowDonate] = useState(false);
+  const [copied, setCopied] = useState(false); // NUEVO ESTADO PARA EL BOTÓN DE COPIAR
 
   useEffect(() => {
     const fetchData = async () => {
@@ -53,6 +54,15 @@ export default function PublicPage() {
     };
     fetchData();
   }, [params]);
+
+  // --- FUNCIÓN PARA COPIAR ENLACE ---
+  const handleShare = () => {
+    if (typeof window !== 'undefined') {
+        navigator.clipboard.writeText(window.location.href);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000); // Volver al estado normal tras 2 seg
+    }
+  };
 
   // --- MODAL DE DONACIÓN ---
   const DonationModal = () => (
@@ -137,19 +147,38 @@ export default function PublicPage() {
 
       </div>
       
-      <footer className="mt-8 text-amber-800/60 text-xs md:text-sm text-center pb-8 space-y-4">
-        <p>
-            ¿Quieres crear tu propia carta? <br/>
-            <a href="/" className="font-bold underline hover:text-red-600">Hazlo gratis en reyes.kylareksas.com</a>
-        </p>
+      <footer className="mt-6 text-amber-800/60 text-xs md:text-sm text-center pb-8 flex flex-col gap-3">
         
-        {/* BOTÓN DONACIÓN EN PÚBLICO (NUEVO ESTILO) */}
+        {/* BOTÓN COPIAR ENLACE (NUEVO) */}
+        <button 
+            onClick={handleShare}
+            className={`
+                px-5 py-2 rounded-full font-bold transition text-sm flex items-center justify-center gap-2 mx-auto shadow-sm border
+                ${copied 
+                    ? "bg-green-100 border-green-300 text-green-800" 
+                    : "bg-white border-gray-300 text-gray-600 hover:bg-gray-50 hover:border-gray-400"
+                }
+            `}
+        >
+            {copied ? (
+                <>✅ ¡Enlace Copiado!</>
+            ) : (
+                <>🔗 Copiar enlace de la carta</>
+            )}
+        </button>
+
+        {/* BOTÓN DONACIÓN */}
         <button 
             onClick={() => setShowDonate(true)}
             className="bg-amber-100 border border-amber-300 text-amber-900 px-5 py-2 rounded-full font-bold hover:bg-amber-200 transition text-sm flex items-center justify-center gap-2 mx-auto shadow-sm"
         >
             ☕ Apoyar al creador
         </button>
+
+        <p className="pt-4">
+            ¿Quieres crear tu propia carta? <br/>
+            <a href="/" className="font-bold underline hover:text-red-600">Hazlo gratis en reyes.kylareksas.com</a>
+        </p>
       </footer>
     </main>
   );
