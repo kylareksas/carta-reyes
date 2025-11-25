@@ -5,7 +5,8 @@ import {
   collection, addDoc, onSnapshot, deleteDoc, doc, orderBy, query, writeBatch, where, setDoc, getDoc 
 } from "firebase/firestore";
 import { 
-  signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged 
+  signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged,
+  setPersistence, browserSessionPersistence // <--- IMPORTAMOS ESTO
 } from "firebase/auth";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
@@ -17,7 +18,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [isRegistering, setIsRegistering] = useState(false);
   const [enabled, setEnabled] = useState(false);
-  const [showDonate, setShowDonate] = useState(false); // ESTADO PARA EL MODAL
+  const [showDonate, setShowDonate] = useState(false); 
 
   // Estados para configuración del perfil
   const [customTitle, setCustomTitle] = useState("Este año he intentado ser muy bueno...");
@@ -90,6 +91,10 @@ export default function Dashboard() {
     }
 
     try {
+        // --- CAMBIO IMPORTANTE: CONFIGURAR SESIÓN ---
+        // Esto hace que la sesión muera al cerrar la pestaña
+        await setPersistence(auth, browserSessionPersistence);
+
         if (isRegistering) {
             const userCred = await createUserWithEmailAndPassword(auth, fakeEmail, password);
             await setDoc(doc(db, "users", userCred.user.uid), {
@@ -184,7 +189,7 @@ export default function Dashboard() {
   if (!user) {
     return (
         <main className="min-h-screen bg-amber-50 flex flex-col items-center justify-center p-4">
-            {showDonate && <DonationModal />} {/* Modal disponible en Login */}
+            {showDonate && <DonationModal />} 
 
             <div className="max-w-md w-full bg-white p-6 md:p-8 rounded-2xl shadow-xl border-t-4 border-red-600 mb-6">
                 <h1 className="text-2xl md:text-3xl font-bold text-center text-slate-800 mb-2">🎁 Carta de Reyes</h1>
@@ -218,7 +223,6 @@ export default function Dashboard() {
                 </div>
             </div>
 
-            {/* BOTÓN DONACIÓN EN LOGIN (NUEVO ESTILO) */}
             <button 
                 onClick={() => setShowDonate(true)} 
                 className="bg-amber-100 border border-amber-300 text-amber-900 px-5 py-2 rounded-full font-bold hover:bg-amber-200 transition text-sm flex items-center gap-2 shadow-sm"
@@ -295,7 +299,6 @@ export default function Dashboard() {
             </div>
 
             <div className="text-center space-y-4 pt-4">
-                 {/* BOTÓN DONACIÓN EN DASHBOARD (NUEVO ESTILO) */}
                  <button 
                     onClick={() => setShowDonate(true)} 
                     className="bg-amber-100 border border-amber-300 text-amber-900 px-5 py-2 rounded-lg font-bold hover:bg-amber-200 transition text-sm flex items-center justify-center gap-2 w-full shadow-sm"
