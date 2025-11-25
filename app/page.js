@@ -184,7 +184,7 @@ export default function Dashboard() {
                 />
 
                 <label className="block text-sm font-bold text-gray-600 mb-1">Imagen (URL):</label>
-                <p className="text-xs text-gray-400 mb-1">Usa "/guts.png" o pega una URL de internet.</p>
+                <p className="text-xs text-gray-400 mb-1">Sube tu foto o pega una URL de internet.</p>
                 <input 
                     type="text" 
                     value={customImage} 
@@ -199,13 +199,13 @@ export default function Dashboard() {
             </div>
 
             <div className="bg-green-100 p-6 rounded-xl border border-green-300">
-                <h2 className="text-lg font-bold text-green-800 mb-2">🌍 Tu Enlace Público</h2>
+                <h2 className="text-lg font-bold text-green-800 mb-2">🌍 Tu enlace público</h2>
                 <p className="text-sm text-green-700 mb-3">Comparte este enlace:</p>
                 <div className="bg-white p-3 rounded border border-green-200 text-sm break-all font-mono select-all mb-2">
                     {typeof window !== 'undefined' ? `${window.location.origin}/u/${user.uid}` : 'Cargando...'}
                 </div>
                 <a href={`/u/${user.uid}`} target="_blank" className="block text-center text-green-700 font-bold underline">
-                    Probara abrir mi carta &rarr;
+                    Probar a abrir mi carta &rarr;
                 </a>
             </div>
 
