@@ -1,131 +1,139 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation"; // <--- USAMOS ESTO AHORA
+import { useParams } from "next/navigation"; 
 import { db } from "../../firebase"; 
 import { collection, query, where, orderBy, getDocs, doc, getDoc } from "firebase/firestore";
 
 export default function PublicPage() {
-  const params = useParams(); // Método moderno para leer la URL
-  const [status, setStatus] = useState("Iniciando...");
-  const [debugInfo, setDebugInfo] = useState({});
-  
+  const params = useParams(); 
   const [profile, setProfile] = useState(null);
   const [wishes, setWishes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [showDonate, setShowDonate] = useState(false); // Estado para la donación
 
   useEffect(() => {
-    const run = async () => {
-      // 1. Verificamos ID
-      const userId = params?.id;
-      setDebugInfo(prev => ({ ...prev, userIdRecibido: userId || "NINGUNO" }));
-      
-      if (!userId) {
-        setStatus("ERROR: No se ha detectado ID en la URL.");
-        return;
-      }
-
-      // 2. Verificamos Firebase
-      if (!db) {
-        setStatus("ERROR CRÍTICO: No se ha podido conectar con Firebase. Revisa la ruta del archivo import { db }.");
-        return;
-      }
-
+    const fetchData = async () => {
       try {
-        setStatus(`Buscando usuario en base de datos... (ID: ${userId})`);
-        
-        // 3. Buscar Perfil
+        const userId = params?.id;
+        if (!userId) { setError("Enlace incompleto."); return; }
+
+        // 1. Buscar Perfil
         const userRef = doc(db, "users", userId);
         const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) setProfile(userSnap.data());
+        else { setError("Esta carta no existe."); setLoading(false); return; }
 
-        if (userSnap.exists()) {
-          setDebugInfo(prev => ({ ...prev, perfilEncontrado: "SÍ", datosPerfil: userSnap.data() }));
-          setProfile(userSnap.data());
-        } else {
-          setStatus("ERROR: El usuario existe en la URL pero NO en la base de datos 'users'.");
-          setDebugInfo(prev => ({ ...prev, perfilEncontrado: "NO" }));
-          return;
-        }
-
-        setStatus("Perfil cargado. Buscando regalos...");
-
-        // 4. Buscar Regalos
-        const q = query(
-            collection(db, "wishes"), 
-            where("uid", "==", userId),
-            orderBy("order", "asc")
-        );
-        
+        // 2. Buscar Regalos
+        const q = query(collection(db, "wishes"), where("uid", "==", userId), orderBy("order", "asc"));
         const querySnapshot = await getDocs(q);
-        const loadedWishes = querySnapshot.docs.map(doc => doc.data());
+        setWishes(querySnapshot.docs.map(doc => doc.data()));
         
-        setDebugInfo(prev => ({ ...prev, regalosEncontrados: loadedWishes.length }));
-        setWishes(loadedWishes);
-        setStatus("OK"); // Todo ha ido bien
-
       } catch (e) {
         console.error(e);
-        setStatus("ERROR TÉCNICO: " + e.message);
-        setDebugInfo(prev => ({ ...prev, errorDetalle: JSON.stringify(e) }));
+        setError("Hubo un problema cargando la carta.");
+      } finally {
+        setLoading(false);
       }
     };
-
-    run();
+    fetchData();
   }, [params]);
 
-  // --- PANTALLA DE DIAGNÓSTICO (SI ALGO VA MAL O CARGANDO) ---
-  if (status !== "OK") {
-    return (
-      <div className="min-h-screen bg-black text-green-400 p-10 font-mono text-sm">
-        <h1 className="text-xl font-bold text-white mb-4">🖥️ MODO DIAGNÓSTICO</h1>
-        
-        <div className="mb-4 p-4 border border-green-800 bg-gray-900">
-          <p className="font-bold text-yellow-400">ESTADO ACTUAL:</p>
-          <p className="text-lg">{status}</p>
+  // --- MODAL DE DONACIÓN ---
+  const DonationModal = () => (
+    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setShowDonate(false)}>
+        <div className="bg-white p-6 rounded-2xl max-w-sm w-full text-center relative animate-fade-in" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setShowDonate(false)} className="absolute top-2 right-4 text-2xl text-gray-400 hover:text-gray-600">&times;</button>
+            <h3 className="text-xl font-bold text-slate-800 mb-2">🎁 Apoyar el proyecto</h3>
+            <p className="text-sm text-slate-500 mb-4">Esta plataforma es gratuita. Si te gusta, puedes invitar al desarrollador a un café.</p>
+            
+            <div className="bg-slate-100 p-4 rounded-xl mb-4 inline-block">
+                {/* CAMBIO AQUÍ: revo.jpg */}
+                <img src="/revo.jpg" alt="QR Revolut" className="w-48 h-48 object-contain mix-blend-multiply" />
+            </div>
+            
+            <a 
+                href="https://revolut.me/kylareksas" 
+                target="_blank" 
+                className="block w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition"
+            >
+                Pagar con Revolut &rarr;
+            </a>
+            <p className="text-xs text-gray-400 mt-3">¡Muchas gracias!</p>
         </div>
+    </div>
+  );
 
-        <div className="p-4 border border-gray-700">
-          <p className="font-bold text-white mb-2">DATOS TÉCNICOS:</p>
-          <pre>{JSON.stringify(debugInfo, null, 2)}</pre>
-        </div>
-
-        <p className="mt-8 text-gray-500">
-          Si ves esto, haz una captura y pásamela.
-        </p>
+  // --- PANTALLAS DE CARGA / ERROR ---
+  if (loading) return (
+      <div className="min-h-screen bg-amber-50 flex items-center justify-center p-4">
+          <div className="text-center animate-pulse">
+              <div className="text-5xl md:text-6xl mb-4">👑</div>
+              <p className="text-amber-800 font-serif text-lg md:text-xl">Buscando la carta real...</p>
+          </div>
       </div>
-    );
-  }
+  );
+  
+  if (error) return (
+      <div className="min-h-screen bg-amber-50 flex flex-col items-center justify-center p-6 text-center">
+          <div className="text-5xl md:text-6xl mb-4">😢</div>
+          <h1 className="text-xl md:text-2xl font-bold text-red-600 mb-2">Vaya...</h1>
+          <p className="text-slate-600 mb-6 text-sm md:text-base">{error}</p>
+          <a href="/" className="px-6 py-3 bg-red-600 text-white rounded-full font-bold hover:bg-red-700 transition text-sm">
+              Crear mi propia carta
+          </a>
+      </div>
+  );
 
-  // --- SI TODO VA BIEN (STATUS "OK"), MOSTRAMOS LA WEB NORMAL ---
+  // --- CARTA FINAL ---
   return (
-    <main className="min-h-screen bg-amber-50 flex flex-col items-center p-4 md:p-8 font-serif text-slate-800">
-      <div className="max-w-2xl w-full bg-white p-8 rounded-2xl shadow-xl border-4 border-yellow-500 relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-4 bg-red-600"></div>
-        <h1 className="text-4xl font-bold text-center text-red-700 mb-2 mt-4">👑👑👑</h1>
-        <h2 className="text-3xl font-bold text-center text-slate-800 mb-6">Carta a los Reyes Magos</h2>
-        <p className="text-center text-slate-600 mb-8 italic text-lg">"{profile.title}"</p>
+    <main className="min-h-screen bg-amber-50 flex flex-col items-center p-3 md:p-8 font-serif text-slate-800">
+      {showDonate && <DonationModal />}
 
-        <div className="space-y-4 mb-10">
+      <div className="max-w-2xl w-full bg-white p-4 md:p-8 rounded-2xl shadow-xl border-4 border-yellow-500 relative overflow-hidden my-4 md:my-0">
+        
+        <div className="absolute top-0 left-0 w-full h-3 md:h-4 bg-red-600"></div>
+        
+        <h1 className="text-3xl md:text-4xl font-bold text-center text-red-700 mb-2 mt-4">👑👑👑</h1>
+        <h2 className="text-2xl md:text-3xl font-bold text-center text-slate-800 mb-4 md:mb-6">Carta a los Reyes Magos</h2>
+        
+        <p className="text-center text-slate-600 mb-6 md:mb-8 italic text-base md:text-lg break-words px-2">
+            "{profile.title}"
+        </p>
+
+        <div className="space-y-3 md:space-y-4 mb-8 md:mb-10">
             {wishes.length === 0 ? (
-                <p className="text-center text-gray-400">Aún no hay deseos.</p>
+                <p className="text-center text-gray-400 italic">Esta lista está vacía... ¡Aún!</p>
             ) : (
                 wishes.map((wish, index) => (
-                    <div key={index} className="flex items-center bg-slate-100 p-4 rounded-lg border-l-4 border-green-600 shadow-sm">
-                        <span className="text-lg font-medium">{wish.text}</span>
+                    <div key={index} className="flex items-center bg-slate-100 p-3 md:p-4 rounded-lg border-l-4 border-green-600 shadow-sm">
+                        <span className="text-base md:text-lg font-medium break-words">{wish.text}</span>
                     </div>
                 ))
             )}
         </div>
 
-        <div className="mt-8 mb-2">
+        <div className="mt-6 md:mt-8 mb-2">
             <img 
                 src={profile.image} 
                 onError={(e) => { e.target.onerror = null; e.target.src = "/guts.png" }}
-                className="w-full h-auto rounded-xl shadow-sm border-2 border-amber-500/30 object-cover max-h-[500px]" 
+                className="w-full h-auto rounded-xl shadow-sm border-2 border-amber-500/30 object-cover max-h-[300px] md:max-h-[500px]" 
             />
         </div>
+
       </div>
-      <footer className="mt-8 text-amber-800/60 text-sm text-center">
-        ¿Quieres crear tu propia carta? <br/>
-        <a href="/" className="font-bold underline hover:text-red-600">Hazlo gratis en reyes.kylareksas.com</a>
+      
+      <footer className="mt-8 text-amber-800/60 text-xs md:text-sm text-center pb-8 space-y-2">
+        <p>
+            ¿Quieres crear tu propia carta? <br/>
+            <a href="/" className="font-bold underline hover:text-red-600">Hazlo gratis en reyes.kylareksas.com</a>
+        </p>
+        <button 
+            onClick={() => setShowDonate(true)}
+            className="text-amber-800/40 hover:text-amber-800 text-xs font-bold pt-4 transition flex items-center justify-center gap-1 w-full"
+        >
+            ☕ Apoyar al creador
+        </button>
       </footer>
     </main>
   );
