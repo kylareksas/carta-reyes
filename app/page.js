@@ -11,13 +11,13 @@ import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
-  const [usernameDisplay, setUsernameDisplay] = useState(""); // Para mostrar el nombre limpio
+  const [usernameDisplay, setUsernameDisplay] = useState(""); 
   const [wishes, setWishes] = useState([]);
   const [newWish, setNewWish] = useState("");
   const [loading, setLoading] = useState(true);
   const [isRegistering, setIsRegistering] = useState(false);
   const [enabled, setEnabled] = useState(false);
-  const [showDonate, setShowDonate] = useState(false);
+  const [showDonate, setShowDonate] = useState(false); // ESTADO PARA EL MODAL
 
   // Estados para configuración del perfil
   const [customTitle, setCustomTitle] = useState("Este año he intentado ser muy bueno...");
@@ -29,12 +29,11 @@ export default function Dashboard() {
     return () => cancelAnimationFrame(animation);
   }, []);
 
-  // 1. Detectar Usuario y Cargar Preferencias
+  // 1. Detectar Usuario
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
-        // Extraer nombre de usuario limpio (quitando @reyes.app)
         const email = currentUser.email || "";
         setUsernameDisplay(email.split('@')[0]);
 
@@ -73,21 +72,18 @@ export default function Dashboard() {
     return () => unsubscribe();
   }, [user]);
 
-  // --- FUNCIONES DE BASE DE DATOS Y AUTH ---
+  // --- FUNCIONES ---
 
   const handleAuth = async (e) => {
     e.preventDefault();
-    let username = e.target.username.value.trim().toLowerCase(); // Convertir a minúsculas
+    let username = e.target.username.value.trim().toLowerCase(); 
     const password = e.target.password.value;
 
-    // Validación básica
     if (username.length < 3) {
         alert("El usuario debe tener al menos 3 letras.");
         return;
     }
 
-    // TRUCO DE SEGURIDAD: Convertir usuario en email falso
-    // Si el usuario escribe "kyla", nosotros enviamos "kyla@reyes.app"
     let fakeEmail = username;
     if (!fakeEmail.includes('@')) {
         fakeEmail = `${username}@reyes.app`;
@@ -99,7 +95,7 @@ export default function Dashboard() {
             await setDoc(doc(db, "users", userCred.user.uid), {
                 title: "¡Hola Reyes Magos! Esta es mi lista",
                 image: "/guts.png",
-                username: username // Guardamos el nombre original
+                username: username
             });
         } else {
             await signInWithEmailAndPassword(auth, fakeEmail, password);
@@ -184,17 +180,18 @@ export default function Dashboard() {
     </div>
   );
 
-  // --- VISTA LOGIN / REGISTRO (SIN EMAIL) ---
+  // --- VISTA LOGIN / REGISTRO ---
   if (!user) {
     return (
-        <main className="min-h-screen bg-amber-50 flex items-center justify-center p-4">
-            <div className="max-w-md w-full bg-white p-6 md:p-8 rounded-2xl shadow-xl border-t-4 border-red-600">
+        <main className="min-h-screen bg-amber-50 flex flex-col items-center justify-center p-4">
+            {showDonate && <DonationModal />} {/* Modal disponible en Login */}
+
+            <div className="max-w-md w-full bg-white p-6 md:p-8 rounded-2xl shadow-xl border-t-4 border-red-600 mb-6">
                 <h1 className="text-2xl md:text-3xl font-bold text-center text-slate-800 mb-2">🎁 Carta de Reyes</h1>
                 <p className="text-center text-gray-500 mb-6 text-sm md:text-base">
                     {isRegistering ? "Elige un nombre de usuario único" : "Entra con tu usuario"}
                 </p>
                 <form onSubmit={handleAuth} className="space-y-4">
-                    {/* INPUT USUARIO (TEXT) */}
                     <div>
                         <input 
                             name="username" 
@@ -204,7 +201,7 @@ export default function Dashboard() {
                             autoComplete="off"
                             className="w-full p-3 border rounded text-sm md:text-base focus:ring-2 focus:ring-red-200 outline-none"
                         />
-                        {isRegistering && <p className="text-xs text-gray-400 mt-1 ml-1">Sin espacios. Úsalo para entrar siempre.</p>}
+                        {isRegistering && <p className="text-xs text-gray-400 mt-1 ml-1">Sin espacios.</p>}
                     </div>
 
                     <input name="password" type="password" placeholder="Contraseña" required className="w-full p-3 border rounded text-sm md:text-base focus:ring-2 focus:ring-red-200 outline-none"/>
@@ -220,6 +217,14 @@ export default function Dashboard() {
                     </button>
                 </div>
             </div>
+
+            {/* BOTÓN DONACIÓN EN LOGIN (NUEVO ESTILO) */}
+            <button 
+                onClick={() => setShowDonate(true)} 
+                className="bg-amber-100 border border-amber-300 text-amber-900 px-5 py-2 rounded-full font-bold hover:bg-amber-200 transition text-sm flex items-center gap-2 shadow-sm"
+            >
+                ☕ Invítame a un café
+            </button>
         </main>
     );
   }
@@ -231,7 +236,7 @@ export default function Dashboard() {
       
       <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
         
-        {/* COLUMNA IZQUIERDA: CONFIGURACIÓN */}
+        {/* COLUMNA IZQUIERDA */}
         <div className="space-y-6 order-2 md:order-1">
             <div className="bg-white p-5 md:p-6 rounded-xl shadow-md">
                 <h2 className="text-lg md:text-xl font-bold mb-4 flex items-center gap-2">
@@ -290,9 +295,10 @@ export default function Dashboard() {
             </div>
 
             <div className="text-center space-y-4 pt-4">
+                 {/* BOTÓN DONACIÓN EN DASHBOARD (NUEVO ESTILO) */}
                  <button 
                     onClick={() => setShowDonate(true)} 
-                    className="text-sm font-bold text-slate-500 hover:text-blue-600 transition flex items-center justify-center gap-2 w-full"
+                    className="bg-amber-100 border border-amber-300 text-amber-900 px-5 py-2 rounded-lg font-bold hover:bg-amber-200 transition text-sm flex items-center justify-center gap-2 w-full shadow-sm"
                 >
                     ☕ Invítame a un café
                 </button>

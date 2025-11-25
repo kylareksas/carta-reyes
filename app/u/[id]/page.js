@@ -10,7 +10,7 @@ export default function PublicPage() {
   const [wishes, setWishes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [showDonate, setShowDonate] = useState(false); // Estado para la donación
+  const [showDonate, setShowDonate] = useState(false); // Estado para el modal
 
   useEffect(() => {
     const fetchData = async () => {
@@ -21,8 +21,23 @@ export default function PublicPage() {
         // 1. Buscar Perfil
         const userRef = doc(db, "users", userId);
         const userSnap = await getDoc(userRef);
-        if (userSnap.exists()) setProfile(userSnap.data());
-        else { setError("Esta carta no existe."); setLoading(false); return; }
+        
+        if (userSnap.exists()) {
+            const userData = userSnap.data();
+            setProfile(userData);
+
+            // Título dinámico
+            if (userData.title) {
+                document.title = `${userData.title.substring(0, 50)} 👑`;
+            } else {
+                document.title = "Carta a los Reyes Magos 👑";
+            }
+
+        } else { 
+            setError("Esta carta no existe."); 
+            setLoading(false); 
+            return; 
+        }
 
         // 2. Buscar Regalos
         const q = query(collection(db, "wishes"), where("uid", "==", userId), orderBy("order", "asc"));
@@ -48,7 +63,6 @@ export default function PublicPage() {
             <p className="text-sm text-slate-500 mb-4">Esta plataforma es gratuita. Si te gusta, puedes invitar al desarrollador a un café.</p>
             
             <div className="bg-slate-100 p-4 rounded-xl mb-4 inline-block">
-                {/* CAMBIO AQUÍ: revo.jpg */}
                 <img src="/revo.jpg" alt="QR Revolut" className="w-48 h-48 object-contain mix-blend-multiply" />
             </div>
             
@@ -123,14 +137,16 @@ export default function PublicPage() {
 
       </div>
       
-      <footer className="mt-8 text-amber-800/60 text-xs md:text-sm text-center pb-8 space-y-2">
+      <footer className="mt-8 text-amber-800/60 text-xs md:text-sm text-center pb-8 space-y-4">
         <p>
             ¿Quieres crear tu propia carta? <br/>
             <a href="/" className="font-bold underline hover:text-red-600">Hazlo gratis en reyes.kylareksas.com</a>
         </p>
+        
+        {/* BOTÓN DONACIÓN EN PÚBLICO (NUEVO ESTILO) */}
         <button 
             onClick={() => setShowDonate(true)}
-            className="text-amber-800/40 hover:text-amber-800 text-xs font-bold pt-4 transition flex items-center justify-center gap-1 w-full"
+            className="bg-amber-100 border border-amber-300 text-amber-900 px-5 py-2 rounded-full font-bold hover:bg-amber-200 transition text-sm flex items-center justify-center gap-2 mx-auto shadow-sm"
         >
             ☕ Apoyar al creador
         </button>
