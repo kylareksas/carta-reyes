@@ -11,12 +11,13 @@ import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
+  const [usernameDisplay, setUsernameDisplay] = useState(""); // Para mostrar el nombre limpio
   const [wishes, setWishes] = useState([]);
   const [newWish, setNewWish] = useState("");
   const [loading, setLoading] = useState(true);
   const [isRegistering, setIsRegistering] = useState(false);
   const [enabled, setEnabled] = useState(false);
-  const [showDonate, setShowDonate] = useState(false); // Estado para donación
+  const [showDonate, setShowDonate] = useState(false);
 
   // Estados para configuración del perfil
   const [customTitle, setCustomTitle] = useState("Este año he intentado ser muy bueno...");
@@ -33,6 +34,10 @@ export default function Dashboard() {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
+        // Extraer nombre de usuario limpio (quitando @reyes.app)
+        const email = currentUser.email || "";
+        setUsernameDisplay(email.split('@')[0]);
+
         try {
             const userDoc = await getDoc(doc(db, "users", currentUser.uid));
             if (userDoc.exists()) {
@@ -68,25 +73,43 @@ export default function Dashboard() {
     return () => unsubscribe();
   }, [user]);
 
-  // --- FUNCIONES DE BASE DE DATOS ---
+  // --- FUNCIONES DE BASE DE DATOS Y AUTH ---
 
   const handleAuth = async (e) => {
     e.preventDefault();
-    const email = e.target.email.value;
+    let username = e.target.username.value.trim().toLowerCase(); // Convertir a minúsculas
     const password = e.target.password.value;
+
+    // Validación básica
+    if (username.length < 3) {
+        alert("El usuario debe tener al menos 3 letras.");
+        return;
+    }
+
+    // TRUCO DE SEGURIDAD: Convertir usuario en email falso
+    // Si el usuario escribe "kyla", nosotros enviamos "kyla@reyes.app"
+    let fakeEmail = username;
+    if (!fakeEmail.includes('@')) {
+        fakeEmail = `${username}@reyes.app`;
+    }
+
     try {
         if (isRegistering) {
-            const userCred = await createUserWithEmailAndPassword(auth, email, password);
+            const userCred = await createUserWithEmailAndPassword(auth, fakeEmail, password);
             await setDoc(doc(db, "users", userCred.user.uid), {
                 title: "¡Hola Reyes Magos! Esta es mi lista",
                 image: "/guts.png",
-                email: email
+                username: username // Guardamos el nombre original
             });
         } else {
-            await signInWithEmailAndPassword(auth, email, password);
+            await signInWithEmailAndPassword(auth, fakeEmail, password);
         }
     } catch (error) {
-        alert("Error de autenticación: " + error.message);
+        let msg = error.message;
+        if (error.code === 'auth/email-already-in-use') msg = "Este usuario ya existe. Prueba otro.";
+        if (error.code === 'auth/weak-password') msg = "La contraseña es muy débil (mínimo 6 caracteres).";
+        if (error.code === 'auth/invalid-credential') msg = "Usuario o contraseña incorrectos.";
+        alert(msg);
     }
   };
 
@@ -97,7 +120,6 @@ export default function Dashboard() {
         await setDoc(doc(db, "users", user.uid), {
             title: customTitle,
             image: customImage, 
-            email: user.email
         }, { merge: true });
         alert("¡Perfil actualizado con éxito!");
     } catch (e) {
@@ -147,7 +169,6 @@ export default function Dashboard() {
             <p className="text-sm text-slate-500 mb-4">Si te gusta la app, puedes invitarme a un café (o a un roscón) para mantener el servidor activo.</p>
             
             <div className="bg-slate-100 p-4 rounded-xl mb-4 inline-block">
-                {/* CAMBIO AQUÍ: revo.jpg */}
                 <img src="/revo.jpg" alt="QR Revolut" className="w-48 h-48 object-contain mix-blend-multiply" />
             </div>
             
@@ -163,23 +184,41 @@ export default function Dashboard() {
     </div>
   );
 
-  // --- VISTA LOGIN / REGISTRO ---
+  // --- VISTA LOGIN / REGISTRO (SIN EMAIL) ---
   if (!user) {
     return (
         <main className="min-h-screen bg-amber-50 flex items-center justify-center p-4">
             <div className="max-w-md w-full bg-white p-6 md:p-8 rounded-2xl shadow-xl border-t-4 border-red-600">
                 <h1 className="text-2xl md:text-3xl font-bold text-center text-slate-800 mb-2">🎁 Carta de Reyes</h1>
-                <p className="text-center text-gray-500 mb-6 text-sm md:text-base">Crea tu lista y compártela</p>
+                <p className="text-center text-gray-500 mb-6 text-sm md:text-base">
+                    {isRegistering ? "Elige un nombre de usuario único" : "Entra con tu usuario"}
+                </p>
                 <form onSubmit={handleAuth} className="space-y-4">
-                    <input name="email" type="email" placeholder="Tu Email" required className="w-full p-3 border rounded text-sm md:text-base"/>
-                    <input name="password" type="password" placeholder="Contraseña" required className="w-full p-3 border rounded text-sm md:text-base"/>
+                    {/* INPUT USUARIO (TEXT) */}
+                    <div>
+                        <input 
+                            name="username" 
+                            type="text" 
+                            placeholder="Nombre de Usuario (ej: kyla)" 
+                            required 
+                            autoComplete="off"
+                            className="w-full p-3 border rounded text-sm md:text-base focus:ring-2 focus:ring-red-200 outline-none"
+                        />
+                        {isRegistering && <p className="text-xs text-gray-400 mt-1 ml-1">Sin espacios. Úsalo para entrar siempre.</p>}
+                    </div>
+
+                    <input name="password" type="password" placeholder="Contraseña" required className="w-full p-3 border rounded text-sm md:text-base focus:ring-2 focus:ring-red-200 outline-none"/>
+                    
                     <button className="w-full bg-red-600 text-white p-3 rounded font-bold hover:bg-red-700 transition text-sm md:text-base">
-                        {isRegistering ? "Crear Cuenta GRATIS" : "Entrar"}
+                        {isRegistering ? "Crear Cuenta" : "Entrar"}
                     </button>
                 </form>
-                <button onClick={() => setIsRegistering(!isRegistering)} className="w-full mt-4 text-sm text-center text-blue-600 underline">
-                    {isRegistering ? "¿Ya tienes cuenta? Entra aquí" : "¿No tienes cuenta? Regístrate"}
-                </button>
+                
+                <div className="mt-4 border-t pt-4 text-center">
+                    <button onClick={() => setIsRegistering(!isRegistering)} className="text-sm text-blue-600 underline hover:text-blue-800">
+                        {isRegistering ? "Volver a Iniciar Sesión" : "¿Nuevo? Crear una cuenta"}
+                    </button>
+                </div>
             </div>
         </main>
     );
@@ -195,9 +234,10 @@ export default function Dashboard() {
         {/* COLUMNA IZQUIERDA: CONFIGURACIÓN */}
         <div className="space-y-6 order-2 md:order-1">
             <div className="bg-white p-5 md:p-6 rounded-xl shadow-md">
-                <h2 className="text-lg md:text-xl font-bold mb-4 flex items-center gap-2">⚙️ Configuración</h2>
+                <h2 className="text-lg md:text-xl font-bold mb-4 flex items-center gap-2">
+                    ⚙️ Hola, <span className="text-red-600 capitalize">{usernameDisplay}</span>
+                </h2>
                 
-                {/* Input Título */}
                 <div className="mb-5">
                     <label className="block text-sm font-bold text-gray-600 mb-1">Frase de la carta:</label>
                     <input 
@@ -208,7 +248,6 @@ export default function Dashboard() {
                     />
                 </div>
 
-                {/* Input Imagen URL */}
                 <div className="mb-6">
                     <label className="block text-sm font-bold text-gray-600 mb-2">Imagen (Enlace / URL):</label>
                     <p className="text-xs text-gray-400 mb-2">
@@ -239,7 +278,6 @@ export default function Dashboard() {
                 </button>
             </div>
 
-            {/* Enlace Público */}
             <div className="bg-green-50 p-5 md:p-6 rounded-xl border border-green-200">
                 <h2 className="text-lg font-bold text-green-800 mb-2">🌍 Tu Enlace Público</h2>
                 <p className="text-sm text-green-700 mb-3">Comparte este enlace:</p>
@@ -251,7 +289,6 @@ export default function Dashboard() {
                 </a>
             </div>
 
-            {/* BOTÓN DONACIÓN Y LOGOUT */}
             <div className="text-center space-y-4 pt-4">
                  <button 
                     onClick={() => setShowDonate(true)} 
