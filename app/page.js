@@ -1,210 +1,251 @@
 "use client";
-import Image from "next/image";
 import { useState, useEffect } from "react";
 import { db, auth } from "./firebase";
 import { 
-  collection, addDoc, onSnapshot, deleteDoc, doc, orderBy, query, writeBatch 
+  collection, addDoc, onSnapshot, deleteDoc, doc, orderBy, query, writeBatch, where, setDoc, getDoc 
 } from "firebase/firestore";
 import { 
-  signInWithEmailAndPassword, signOut, onAuthStateChanged 
+  signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged 
 } from "firebase/auth";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
-export default function Home() {
-  const [wishes, setWishes] = useState([]);
+export default function Dashboard() {
   const [user, setUser] = useState(null);
+  const [wishes, setWishes] = useState([]);
   const [newWish, setNewWish] = useState("");
   const [loading, setLoading] = useState(true);
-
-  // Solución para evitar errores de hidratación con Drag&Drop
+  const [isRegistering, setIsRegistering] = useState(false);
   const [enabled, setEnabled] = useState(false);
+
+  // Estados para configuración del perfil
+  const [customTitle, setCustomTitle] = useState("Este año he intentado ser muy bueno...");
+  const [customImage, setCustomImage] = useState("/guts.png");
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
   useEffect(() => {
     const animation = requestAnimationFrame(() => setEnabled(true));
-    return () => {
-      cancelAnimationFrame(animation);
-      setEnabled(false);
-    };
+    return () => cancelAnimationFrame(animation);
   }, []);
 
-  // 1. Escuchar cambios (Ordenados por el campo 'order')
+  // 1. Detectar Usuario y Cargar sus Preferencias
   useEffect(() => {
-    // CAMBIO: Ahora ordenamos por 'order' ascendente (0, 1, 2...)
-    const q = query(collection(db, "wishes"), orderBy("order", "asc"));
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        // Cargar perfil del usuario (mensaje y foto)
+        const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+        if (userDoc.exists()) {
+            setCustomTitle(userDoc.data().title || "Este año he intentado ser muy bueno...");
+            setCustomImage(userDoc.data().image || "/guts.png");
+        }
+      } else {
+        setWishes([]);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // 2. Cargar Deseos del Usuario
+  useEffect(() => {
+    if (!user) return;
+    setLoading(true);
+    const q = query(
+        collection(db, "wishes"), 
+        where("uid", "==", user.uid), // Solo mis deseos
+        orderBy("order", "asc")
+    );
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const wishesArr = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+      const wishesArr = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
       setWishes(wishesArr);
       setLoading(false);
     });
     return () => unsubscribe();
-  }, []);
+  }, [user]);
 
-  // 2. Auth state
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-    });
-    return () => unsubscribe();
-  }, []);
+  // --- Funciones de Lógica ---
 
-  // --- Funciones ---
+  const handleAuth = async (e) => {
+    e.preventDefault();
+    const email = e.target.email.value;
+    const password = e.target.password.value;
+    try {
+        if (isRegistering) {
+            const userCred = await createUserWithEmailAndPassword(auth, email, password);
+            // Crear perfil inicial
+            await setDoc(doc(db, "users", userCred.user.uid), {
+                title: "¡Hola Reyes Magos!",
+                image: "https://media.giphy.com/media/3o6fJdYXewShagRgRv/giphy.gif" // Imagen por defecto graciosa
+            });
+        } else {
+            await signInWithEmailAndPassword(auth, email, password);
+        }
+    } catch (error) {
+        alert(error.message);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!user) return;
+    setIsSavingProfile(true);
+    try {
+        await setDoc(doc(db, "users", user.uid), {
+            title: customTitle,
+            image: customImage
+        }, { merge: true });
+        alert("¡Perfil actualizado!");
+    } catch (e) {
+        alert("Error guardando perfil");
+    }
+    setIsSavingProfile(false);
+  };
 
   const handleAdd = async (e) => {
     e.preventDefault();
     if (!newWish.trim()) return;
-    try {
-      // CAMBIO: Asignamos el orden al final de la lista actual
-      const nextOrder = wishes.length; 
-      await addDoc(collection(db, "wishes"), {
+    const nextOrder = wishes.length; 
+    await addDoc(collection(db, "wishes"), {
         text: newWish,
         timestamp: Date.now(),
-        order: nextOrder 
-      });
-      setNewWish("");
-    } catch (error) {
-      console.error("Error añadiendo:", error);
-    }
+        order: nextOrder,
+        uid: user.uid // Guardamos el UID del usuario
+    });
+    setNewWish("");
   };
 
   const handleDelete = async (id) => {
-    if (confirm("¿Borrar este deseo?")) {
-      await deleteDoc(doc(db, "wishes", id));
-    }
+    if (confirm("¿Borrar?")) await deleteDoc(doc(db, "wishes", id));
   };
 
-  // FUNCIÓN CLAVE: Reordenar al arrastrar
   const handleOnDragEnd = async (result) => {
     if (!result.destination) return;
-
-    // 1. Reordenar visualmente al instante (para que se sienta rápido)
     const items = Array.from(wishes);
     const [reorderedItem] = items.splice(result.source.index, 1);
     items.splice(result.destination.index, 0, reorderedItem);
-    
-    setWishes(items); // Actualizar estado local
-
-    // 2. Guardar el nuevo orden en Firebase (Batch update)
-    // Esto actualiza todos los documentos con su nueva posición
-    try {
-        const batch = writeBatch(db);
-        items.forEach((item, index) => {
-            const docRef = doc(db, "wishes", item.id);
-            batch.update(docRef, { order: index });
-        });
-        await batch.commit();
-    } catch (error) {
-        console.error("Error guardando el orden:", error);
-    }
+    setWishes(items);
+    const batch = writeBatch(db);
+    items.forEach((item, index) => {
+        batch.update(doc(db, "wishes", item.id), { order: index });
+    });
+    await batch.commit();
   };
 
-  const handleLogin = async () => {
-    const email = prompt("Email Real:");
-    const password = prompt("Contraseña Real:");
-    if (email && password) {
-        try {
-            await signInWithEmailAndPassword(auth, email, password);
-        } catch (e) {
-            alert("Error: " + e.message);
-        }
-    }
-  };
+  if (!enabled) return null;
 
-  if (!enabled) {
-    return null; // Esperar a que el navegador esté listo para evitar parpadeos
+  // --- VISTA DE LOGIN / REGISTRO ---
+  if (!user) {
+    return (
+        <main className="min-h-screen bg-amber-50 flex items-center justify-center p-4">
+            <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-xl border-t-4 border-red-600">
+                <h1 className="text-3xl font-bold text-center text-slate-800 mb-2">🎁 Carta de Reyes</h1>
+                <p className="text-center text-gray-500 mb-6">Crea tu lista y compártela</p>
+                <form onSubmit={handleAuth} className="space-y-4">
+                    <input name="email" type="email" placeholder="Tu Email" required className="w-full p-3 border rounded"/>
+                    <input name="password" type="password" placeholder="Contraseña" required className="w-full p-3 border rounded"/>
+                    <button className="w-full bg-red-600 text-white p-3 rounded font-bold hover:bg-red-700">
+                        {isRegistering ? "Crear Cuenta GRATIS" : "Entrar"}
+                    </button>
+                </form>
+                <button onClick={() => setIsRegistering(!isRegistering)} className="w-full mt-4 text-sm text-center text-blue-600 underline">
+                    {isRegistering ? "¿Ya tienes cuenta? Entra aquí" : "¿No tienes cuenta? Regístrate"}
+                </button>
+            </div>
+        </main>
+    );
   }
 
+  // --- VISTA DEL DASHBOARD (LOGUEADO) ---
   return (
-    <main className="min-h-screen bg-amber-50 flex flex-col items-center p-4 md:p-8 font-serif text-slate-800">
-      
-      <div className="max-w-2xl w-full bg-white p-8 rounded-2xl shadow-xl border-4 border-yellow-500 relative overflow-hidden">
+    <main className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-800">
+      <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
         
-        <div className="absolute top-0 left-0 w-full h-4 bg-red-600"></div>
-        
-        <h1 className="text-4xl font-bold text-center text-red-700 mb-2 mt-4">👑👑👑</h1>
-        <h2 className="text-3xl font-bold text-center text-slate-800 mb-6">Carta a los Reyes Magos</h2>
-        <p className="text-center text-slate-600 mb-8 italic">"Este año la vida no me da para escribir..."</p>
+        {/* COLUMNA IZQUIERDA: CONFIGURACIÓN */}
+        <div className="space-y-6">
+            <div className="bg-white p-6 rounded-xl shadow-md">
+                <h2 className="text-xl font-bold mb-4">⚙️ Tu Configuración</h2>
+                
+                <label className="block text-sm font-bold text-gray-600 mb-1">Frase de la carta:</label>
+                <input 
+                    type="text" 
+                    value={customTitle} 
+                    onChange={(e) => setCustomTitle(e.target.value)}
+                    className="w-full p-2 border rounded mb-4"
+                />
 
-        {/* LISTA ARRASTRABLE */}
-        {loading ? (
-           <p className="text-center">Cargando ilusiones...</p>
-        ) : (
-        <DragDropContext onDragEnd={handleOnDragEnd}>
-            <Droppable droppableId="wishesList">
-                {(provided) => (
-                    <div 
-                        className="space-y-4 mb-10"
-                        {...provided.droppableProps}
-                        ref={provided.innerRef}
-                    >
-                        {wishes.length === 0 && <p className="text-center text-gray-400">La carta está vacía... ¡Aún!</p>}
-                        
-                        {wishes.map((wish, index) => (
-                            <Draggable 
-                                key={wish.id} 
-                                draggableId={wish.id} 
-                                index={index}
-                                isDragDisabled={!user} // ¡IMPORTANTE! Solo el admin puede arrastrar
-                            >
-                                {(provided, snapshot) => (
-                                    <div
-                                        ref={provided.innerRef}
-                                        {...provided.draggableProps}
-                                        {...provided.dragHandleProps}
-                                        style={{ ...provided.draggableProps.style }}
-                                        className={`flex justify-between items-center bg-slate-100 p-4 rounded-lg border-l-4 border-green-600 shadow-sm transition 
-                                            ${snapshot.isDragging ? "bg-green-50 shadow-2xl scale-105" : ""}
-                                            ${user ? "cursor-grab active:cursor-grabbing" : ""}
-                                        `}
-                                    >
-                                        <div className="flex items-center gap-3 w-full">
-                                            {/* Icono de agarre (solo visible para admin) */}
-                                            {user && <span className="text-gray-400 text-xl">::</span>}
-                                            <span className="text-lg font-medium break-words w-full">{wish.text}</span>
-                                        </div>
+                <label className="block text-sm font-bold text-gray-600 mb-1">Imagen (URL):</label>
+                <p className="text-xs text-gray-400 mb-1">Copia y pega un enlace de una imagen de Google/Pinterest</p>
+                <input 
+                    type="text" 
+                    value={customImage} 
+                    onChange={(e) => setCustomImage(e.target.value)}
+                    className="w-full p-2 border rounded mb-4"
+                    placeholder="https://..."
+                />
+                
+                <button onClick={handleSaveProfile} disabled={isSavingProfile} className="bg-slate-800 text-white px-4 py-2 rounded hover:bg-slate-900 w-full">
+                    {isSavingProfile ? "Guardando..." : "Guardar Cambios"}
+                </button>
+            </div>
 
-                                        {user && (
-                                            <button onClick={() => handleDelete(wish.id)} className="ml-4 text-red-500 font-bold px-2">X</button>
-                                        )}
-                                    </div>
-                                )}
-                            </Draggable>
-                        ))}
-                        {provided.placeholder}
-                    </div>
-                )}
-            </Droppable>
-        </DragDropContext>
-        )}
+            <div className="bg-green-100 p-6 rounded-xl border border-green-300">
+                <h2 className="text-lg font-bold text-green-800 mb-2">🌍 Tu Enlace Público</h2>
+                <p className="text-sm text-green-700 mb-3">Envía esto a tus amigos, clientes o familiares:</p>
+                <div className="bg-white p-3 rounded border border-green-200 text-sm break-all font-mono select-all">
+                    {typeof window !== 'undefined' ? `${window.location.origin}/u/${user.uid}` : 'Cargando...'}
+                </div>
+                <a href={`/u/${user.uid}`} target="_blank" className="block text-center mt-3 text-green-700 font-bold underline">
+                    Ver cómo queda mi carta &rarr;
+                </a>
+            </div>
 
-        {/* Panel Admin */}
-        {user ? (
-          <div className="mt-6 pt-6 border-t-2 border-dashed border-gray-300">
-            <h3 className="text-sm font-bold text-gray-500 mb-2 uppercase tracking-wider">Zona Privada</h3>
-            <form onSubmit={handleAdd} className="flex gap-2 flex-col sm:flex-row">
+            <button onClick={() => signOut(auth)} className="text-red-500 text-sm underline">Cerrar Sesión</button>
+        </div>
+
+        {/* COLUMNA DERECHA: EDICIÓN DE LISTA */}
+        <div className="bg-white p-6 rounded-xl shadow-md border-t-4 border-yellow-400">
+            <h2 className="text-xl font-bold mb-4">📝 Tu Lista de Deseos</h2>
+            
+            <form onSubmit={handleAdd} className="flex gap-2 mb-6">
               <input
                 type="text"
                 value={newWish}
                 onChange={(e) => setNewWish(e.target.value)}
-                placeholder="Añadir nuevo regalo..."
-                className="flex-1 p-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                placeholder="Añadir deseo..."
+                className="flex-1 p-2 border border-gray-300 rounded"
               />
-              <button type="submit" className="bg-green-600 text-white px-6 py-2 rounded font-bold hover:bg-green-700">Añadir</button>
+              <button type="submit" className="bg-yellow-500 text-white px-4 py-2 rounded font-bold hover:bg-yellow-600">+</button>
             </form>
-            <button onClick={() => signOut(auth)} className="mt-4 text-xs text-gray-400 hover:text-gray-600 underline">Cerrar sesión</button>
-          </div>
-        ) : (
-          <div className="mt-8 text-center">
-              <button onClick={handleLogin} className="text-3xl text-gray-300 hover:text-yellow-500 transition-colors p-2" title="Zona de sus majestades">♔</button>
-          </div>
-        )}
 
-        <div className="mt-8 mb-2">
-            <Image src="/guts.png" alt="Guts esperando la navidad" width={800} height={400} className="w-full h-auto rounded-xl shadow-sm border-2 border-amber-500/30" priority />
+            <DragDropContext onDragEnd={handleOnDragEnd}>
+                <Droppable droppableId="wishesList">
+                    {(provided) => (
+                        <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-3">
+                            {wishes.map((wish, index) => (
+                                <Draggable key={wish.id} draggableId={wish.id} index={index}>
+                                    {(provided) => (
+                                        <div
+                                            ref={provided.innerRef}
+                                            {...provided.draggableProps}
+                                            {...provided.dragHandleProps}
+                                            className="flex justify-between items-center bg-slate-50 p-3 rounded border border-slate-200"
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-gray-400 cursor-grab">::</span>
+                                                <span>{wish.text}</span>
+                                            </div>
+                                            <button onClick={() => handleDelete(wish.id)} className="text-red-500 font-bold px-2">x</button>
+                                        </div>
+                                    )}
+                                </Draggable>
+                            ))}
+                            {provided.placeholder}
+                        </div>
+                    )}
+                </Droppable>
+            </DragDropContext>
         </div>
+
       </div>
-      <footer className="mt-8 text-amber-800/60 text-sm">Creado con ilusión en Next.js</footer>
     </main>
   );
 }
