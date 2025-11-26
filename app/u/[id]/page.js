@@ -175,12 +175,11 @@ export default function PublicPage() {
                                 href={`https://www.amazon.es/s?k=${encodeURIComponent(wish.text)}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="bg-white border border-gray-200 hover:border-yellow-500 hover:bg-yellow-50 text-gray-700 p-2 rounded-lg transition shadow-sm"
+                                className="bg-white border border-gray-200 hover:border-yellow-500 hover:bg-yellow-50 text-gray-700 p-2 rounded-lg transition shadow-sm flex items-center justify-center w-10 h-10" // Añadido w-10 h-10 para forzar tamaño cuadrado
                                 title="Buscar en Amazon"
                             >
-<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-    <path d="M13.6 23.6c-3.3-2.4-6.6-3.3-9.6-2.6-1.1.3-2.1.9-2.8 1.7-.2.3-.6.3-.8.1-.2-.2-.3-.6-.1-.8 1.5-1.8 3.5-2.6 5.9-2.3 2.9.3 6 1.5 9.2 3.6.3.2.4.7.2 1-.2.3-.7.4-1 .2zm2.1-6.7c-1.5 1.9-3.7 3.3-6.2 3.8-.6.1-1.1.2-1.6.2-3.6 0-6.7-2.3-6.7-6.3 0-4.7 4-8.6 9-8.6 2.6 0 4.7 1 5.8 2.7.2-1.4.4-2.7.4-4.1 0-1.4-.2-2.9-.8-4.3-.4-.8-1.4-1.2-2.3-1.1-1.7.2-3.2.9-4.5 2-.3.3-.9.2-1.1-.1-.2-.3-.2-.9.1-1.1 1.7-1.4 3.6-2.2 5.7-2.5 1.6-.2 3.2.5 3.9 1.9.7 1.7.9 3.4.9 5.4 0 1.4-.2 3-.5 4.5 1 .5 2.1.8 3.2.8.9-.1 1.8-.4 2.5-.9.3-.3.8-.2 1 .1.2.3.2.8-.1 1-1 .8-2.2 1.3-3.5 1.5-1.2.1-2.5-.2-3.7-.8-.4.9-1.1 1.8-1.8 2.4zm-2.8-8.3c-.8-1.2-2.2-1.9-3.7-1.9-3.1 0-5.7 2.5-5.7 5.5 0 2.5 1.8 3.8 4.1 3.8 2.1 0 4.2-1.2 5.4-3v-4.4z"/>
-</svg>
+                                {/* CAMBIO: Usamos la imagen que has descargado */}
+                                <img src="/amazon.png" alt="Amazon" className="w-6 h-6 object-contain" />
                             </a>
                         </div>
                     </div>
