@@ -11,7 +11,9 @@ export default function PublicPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showDonate, setShowDonate] = useState(false);
-  const [copied, setCopied] = useState(false); // NUEVO ESTADO PARA EL BOTÓN DE COPIAR
+  const [copied, setCopied] = useState(false);
+  // NUEVO ESTADO: Para controlar el modal de la imagen a pantalla completa
+  const [showImageModal, setShowImageModal] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -60,7 +62,7 @@ export default function PublicPage() {
     if (typeof window !== 'undefined') {
         navigator.clipboard.writeText(window.location.href);
         setCopied(true);
-        setTimeout(() => setCopied(false), 2000); // Volver al estado normal tras 2 seg
+        setTimeout(() => setCopied(false), 2000); 
     }
   };
 
@@ -114,6 +116,24 @@ export default function PublicPage() {
     <main className="min-h-screen bg-amber-50 flex flex-col items-center p-3 md:p-8 font-serif text-slate-800">
       {showDonate && <DonationModal />}
 
+      {/* NUEVO: MODAL DE IMAGEN A PANTALLA COMPLETA */}
+      {showImageModal && (
+        <div 
+            className="fixed inset-0 bg-black/95 z-[100] flex items-center justify-center p-4 cursor-zoom-out animate-fade-in"
+            onClick={() => setShowImageModal(false)}
+        >
+            {/* Botón cerrar explícito (opcional, ya que el fondo cierra) */}
+            <button className="absolute top-4 right-4 text-white/70 hover:text-white text-4xl leading-none">&times;</button>
+            
+            <img 
+                src={profile.image} 
+                onError={(e) => { e.target.onerror = null; e.target.src = "/guts.png" }}
+                className="w-auto h-auto max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+                alt="Imagen a pantalla completa"
+            />
+        </div>
+      )}
+
       <div className="max-w-2xl w-full bg-white p-4 md:p-8 rounded-2xl shadow-xl border-4 border-yellow-500 relative overflow-hidden my-4 md:my-0">
         
         <div className="absolute top-0 left-0 w-full h-3 md:h-4 bg-red-600"></div>
@@ -130,26 +150,64 @@ export default function PublicPage() {
                 <p className="text-center text-gray-400 italic">Esta lista está vacía... ¡Aún!</p>
             ) : (
                 wishes.map((wish, index) => (
-                    <div key={index} className="flex items-center bg-slate-100 p-3 md:p-4 rounded-lg border-l-4 border-green-600 shadow-sm">
-                        <span className="text-base md:text-lg font-medium break-words">{wish.text}</span>
+                    <div key={index} className="flex flex-col sm:flex-row justify-between items-center bg-slate-100 p-3 md:p-4 rounded-lg border-l-4 border-green-600 shadow-sm gap-3">
+                        <span className="text-base md:text-lg font-medium break-words w-full text-left">{wish.text}</span>
+                        
+                        <div className="flex gap-2 shrink-0">
+                            {/* Botón Google */}
+                            <a 
+                                href={`https://www.google.com/search?q=${encodeURIComponent(wish.text)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-white border border-gray-200 hover:border-blue-400 hover:bg-blue-50 text-gray-700 p-2 rounded-lg transition shadow-sm"
+                                title="Buscar en Google"
+                            >
+                                <svg viewBox="0 0 24 24" width="20" height="20" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                                </svg>
+                            </a>
+
+                            {/* Botón Amazon */}
+                            <a 
+                                href={`https://www.amazon.es/s?k=${encodeURIComponent(wish.text)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-white border border-gray-200 hover:border-yellow-500 hover:bg-yellow-50 text-gray-700 p-2 rounded-lg transition shadow-sm"
+                                title="Buscar en Amazon"
+                            >
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M11.603 12.016c-1.366.126-2.883.335-2.883 1.696 0 1.256 1.13 1.571 2.051 1.571.9 0 1.905-.44 1.905-1.508v-1.802c-.314.02-.69.043-1.073.043zm4.526 2.378c0-1.843-1.11-2.932-3.239-2.932-.712 0-1.424.126-2.115.251v-1.634c0-1.152.921-1.634 2.073-1.634.775 0 1.403.189 1.968.524l.65-1.76c-.691-.418-1.78-.69-3.004-.69-2.618 0-4.146 1.34-4.146 3.822v.377c0 .126.021.251.021.377-.084-.021-.168-.021-.251-.021-2.555 0-3.958 1.487-3.958 3.518 0 2.031 1.675 3.34 3.937 3.34 1.633 0 2.764-.733 3.35-1.55l.064 1.34h2.57c-.042-.69-.042-2.324-.042-2.324.063-.586.126-1.047.126-1.487zm-1.047 5.759c-1.382.964-3.539 1.131-5.643.503-.482-.147-.942-.356-1.382-.586 1.947-.147 3.539-.817 4.753-2.22.44.754 1.32 1.57 2.272 2.303z"/>
+                                </svg>
+                            </a>
+                        </div>
                     </div>
                 ))
             )}
         </div>
 
         <div className="mt-6 md:mt-8 mb-2">
+            {/* IMAGEN PRINCIPAL CON CLICK PARA AMPLIAR */}
             <img 
                 src={profile.image} 
                 onError={(e) => { e.target.onerror = null; e.target.src = "/guts.png" }}
-                className="w-full h-auto rounded-xl shadow-sm border-2 border-amber-500/30 object-cover max-h-[300px] md:max-h-[500px]" 
+                /* Añadido cursor-zoom-in, hover, y onClick */
+                className="w-full h-auto rounded-xl shadow-sm border-2 border-amber-500/30 object-cover max-h-[300px] md:max-h-[500px] cursor-zoom-in hover:opacity-95 transition"
+                onClick={() => setShowImageModal(true)}
             />
+            {/* NUEVA LEYENDA/TIP */}
+            <p className="text-center text-xs text-amber-800/40 mt-2 italic px-4">
+                Tip: Para evitar recortes, usa imágenes horizontales (ej: 4:3) de al menos 1024px de ancho. Haz clic para ampliar.
+            </p>
         </div>
 
       </div>
       
       <footer className="mt-6 text-amber-800/60 text-xs md:text-sm text-center pb-8 flex flex-col gap-3">
         
-        {/* BOTÓN COPIAR ENLACE (NUEVO) */}
+        {/* BOTÓN COPIAR ENLACE */}
         <button 
             onClick={handleShare}
             className={`

@@ -6,7 +6,7 @@ import {
 } from "firebase/firestore";
 import { 
   signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged,
-  setPersistence, browserSessionPersistence // <--- IMPORTAMOS ESTO
+  setPersistence, browserSessionPersistence 
 } from "firebase/auth";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
@@ -50,6 +50,7 @@ export default function Dashboard() {
         }
       } else {
         setWishes([]);
+        setIsRegistering(false); // <--- CORRECCIÓN 3: Al salir, forzamos la vista de Login
       }
     });
     return () => unsubscribe();
@@ -91,8 +92,6 @@ export default function Dashboard() {
     }
 
     try {
-        // --- CAMBIO IMPORTANTE: CONFIGURAR SESIÓN ---
-        // Esto hace que la sesión muera al cerrar la pestaña
         await setPersistence(auth, browserSessionPersistence);
 
         if (isRegistering) {
@@ -204,12 +203,19 @@ export default function Dashboard() {
                             placeholder="Nombre de Usuario (ej: kyla)" 
                             required 
                             autoComplete="off"
-                            className="w-full p-3 border rounded text-sm md:text-base focus:ring-2 focus:ring-red-200 outline-none"
+                            // CORRECCIÓN 1: placeholder:text-gray-500 para que se vea más oscuro
+                            className="w-full p-3 border rounded text-sm md:text-base focus:ring-2 focus:ring-red-200 outline-none placeholder:text-gray-500"
                         />
                         {isRegistering && <p className="text-xs text-gray-400 mt-1 ml-1">Sin espacios.</p>}
                     </div>
 
-                    <input name="password" type="password" placeholder="Contraseña" required className="w-full p-3 border rounded text-sm md:text-base focus:ring-2 focus:ring-red-200 outline-none"/>
+                    <input 
+                        name="password" 
+                        type="password" 
+                        placeholder="Contraseña" 
+                        required 
+                        className="w-full p-3 border rounded text-sm md:text-base focus:ring-2 focus:ring-red-200 outline-none placeholder:text-gray-500"
+                    />
                     
                     <button className="w-full bg-red-600 text-white p-3 rounded font-bold hover:bg-red-700 transition text-sm md:text-base">
                         {isRegistering ? "Crear Cuenta" : "Entrar"}
@@ -270,7 +276,8 @@ export default function Dashboard() {
                         placeholder="https://..."
                     />
                     
-                    {customImage && customImage.startsWith('http') && (
+                    {/* CORRECCIÓN 2: Permitir imágenes base64 (data:image) */}
+                    {customImage && (customImage.startsWith('http') || customImage.startsWith('data:image')) && (
                         <div className="mt-2 p-2 border border-dashed rounded bg-gray-50 text-center">
                              <p className="text-xs text-gray-400 mb-1">Vista previa:</p>
                              <img src={customImage} alt="Preview" className="h-20 mx-auto rounded object-contain" />
@@ -322,7 +329,7 @@ export default function Dashboard() {
                 value={newWish}
                 onChange={(e) => setNewWish(e.target.value)}
                 placeholder="Añadir deseo..."
-                className="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none"
+                className="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none placeholder:text-gray-500"
               />
               <button type="submit" className="bg-yellow-500 text-white px-4 py-2 rounded-lg font-bold hover:bg-yellow-600 text-xl leading-none shadow-sm transition active:scale-95">+</button>
             </form>
