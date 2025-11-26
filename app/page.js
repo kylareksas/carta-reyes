@@ -50,7 +50,7 @@ export default function Dashboard() {
         }
       } else {
         setWishes([]);
-        setIsRegistering(false); // <--- CORRECCIÓN 3: Al salir, forzamos la vista de Login
+        setIsRegistering(false); 
       }
     });
     return () => unsubscribe();
@@ -203,7 +203,6 @@ export default function Dashboard() {
                             placeholder="Nombre de Usuario (ej: kyla)" 
                             required 
                             autoComplete="off"
-                            // CORRECCIÓN 1: placeholder:text-gray-500 para que se vea más oscuro
                             className="w-full p-3 border rounded text-sm md:text-base focus:ring-2 focus:ring-red-200 outline-none placeholder:text-gray-500"
                         />
                         {isRegistering && <p className="text-xs text-gray-400 mt-1 ml-1">Sin espacios.</p>}
@@ -253,13 +252,15 @@ export default function Dashboard() {
                     ⚙️ Hola, <span className="text-red-600 capitalize">{usernameDisplay}</span>
                 </h2>
                 
+                {/* CAMBIO AQUÍ: TEXTAREA GRANDE */}
                 <div className="mb-5">
-                    <label className="block text-sm font-bold text-gray-600 mb-1">Frase de la carta:</label>
-                    <input 
-                        type="text" 
+                    <label className="block text-sm font-bold text-gray-600 mb-1">Escribe aquí el mensaje que acompaña tu lista:</label>
+                    <textarea 
                         value={customTitle} 
                         onChange={(e) => setCustomTitle(e.target.value)}
-                        className="w-full p-2 border rounded focus:ring-2 focus:ring-yellow-400 outline-none"
+                        rows={6} // 6 Líneas de alto
+                        className="w-full p-2 border rounded focus:ring-2 focus:ring-yellow-400 outline-none resize-y"
+                        placeholder="Queridos Reyes Magos..."
                     />
                 </div>
 
@@ -276,7 +277,6 @@ export default function Dashboard() {
                         placeholder="https://..."
                     />
                     
-                    {/* CORRECCIÓN 2: Permitir imágenes base64 (data:image) */}
                     {customImage && (customImage.startsWith('http') || customImage.startsWith('data:image')) && (
                         <div className="mt-2 p-2 border border-dashed rounded bg-gray-50 text-center">
                              <p className="text-xs text-gray-400 mb-1">Vista previa:</p>
