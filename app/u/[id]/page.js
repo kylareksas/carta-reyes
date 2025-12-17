@@ -204,7 +204,7 @@ export default function PublicPage() {
 
       </div>
       
-      <footer className="mt-6 text-amber-800/60 text-xs md:text-sm text-center pb-8 flex flex-col gap-3">
+<footer className="mt-6 text-amber-800/60 text-xs md:text-sm text-center pb-8 flex flex-col gap-3">
         
         {/* BOTÓN COPIAR ENLACE */}
         <button 
@@ -234,7 +234,10 @@ export default function PublicPage() {
 
         <p className="pt-4">
             ¿Quieres crear tu propia carta? <br/>
-            <a href="/" className="font-bold underline hover:text-red-600">Hazlo gratis en reyes.kylareksas.com</a>
+            {/* CAMBIO AQUÍ: Usamos ruta relativa "/" para que vaya al inicio sea cual sea el dominio */}
+            <a href="/" className="font-bold underline hover:text-red-600">
+                Hazlo gratis aquí
+            </a>
         </p>
       </footer>
     </main>
