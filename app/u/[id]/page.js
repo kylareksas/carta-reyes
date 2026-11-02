@@ -3,6 +3,18 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "../../supabase";
 import DonationModal from "../../components/DonationModal";
+import {
+  Crown,
+  ExternalLink,
+  Search,
+  ShoppingBag,
+  Check,
+  Copy,
+  Coffee,
+  Gift,
+  Sparkles,
+  X,
+} from "lucide-react";
 
 export default function PublicPage() {
   const params = useParams();
@@ -18,7 +30,6 @@ export default function PublicPage() {
   const username = decodeURIComponent(params?.id || "").toLowerCase();
 
   useEffect(() => {
-    // Detectar si quien mira la carta es el propio dueño para ocultar el estado de reservas (Anti-Spoiler)
     const savedUser = localStorage.getItem("carta_reyes_user");
     if (savedUser) {
       const parsed = JSON.parse(savedUser);
@@ -34,7 +45,6 @@ export default function PublicPage() {
         return;
       }
 
-      // 1. Obtener perfil (Sin seleccionar nunca la columna PIN)
       const { data: userData, error: userError } = await supabase
         .from("profiles")
         .select("username, title, image")
@@ -48,9 +58,8 @@ export default function PublicPage() {
       }
 
       setProfile(userData);
-      document.title = `Carta de @${userData.username} a los Reyes Magos 👑`;
+      document.title = `Carta de @${userData.username} · Reyes Magos`;
 
-      // 2. Obtener lista de deseos
       const { data: wishesData } = await supabase
         .from("wishes")
         .select("id, text, url, price, sort_order, is_reserved")
@@ -64,10 +73,8 @@ export default function PublicPage() {
     fetchData();
   }, [username]);
 
-  // --- RESERVAR / LIBERAR REGALO (MODO REY MAGO) ---
   const toggleReserveWish = async (wish) => {
     const nextState = !wish.is_reserved;
-    // Actualización optimista en interfaz
     setWishes((prev) =>
       prev.map((w) => (w.id === wish.id ? { ...w, is_reserved: nextState } : w))
     );
@@ -88,10 +95,14 @@ export default function PublicPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-amber-50 flex items-center justify-center p-4">
-        <div className="text-center animate-pulse">
-          <div className="text-5xl mb-3">👑</div>
-          <p className="text-amber-800 font-serif text-lg">Abriendo el lacre real...</p>
+      <div className="min-h-screen bg-[#FAF8F5] flex items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-3 animate-pulse">
+          <div className="w-10 h-10 rounded-2xl bg-amber-100/70 flex items-center justify-center text-amber-700">
+            <Crown className="w-5 h-5" />
+          </div>
+          <p className="text-stone-400 text-xs font-medium tracking-wide uppercase">
+            Abriendo carta...
+          </p>
         </div>
       </div>
     );
@@ -99,13 +110,15 @@ export default function PublicPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-amber-50 flex flex-col items-center justify-center p-6 text-center">
-        <div className="text-5xl mb-4">🐪</div>
-        <h1 className="text-2xl font-bold text-red-600 mb-2">Carta no encontrada</h1>
-        <p className="text-slate-600 mb-6 text-sm">{error}</p>
+      <div className="min-h-screen bg-[#FAF8F5] flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-12 h-12 rounded-2xl bg-stone-100 flex items-center justify-center text-stone-400 mb-4">
+          <Gift className="w-6 h-6" />
+        </div>
+        <h1 className="text-lg font-semibold text-stone-900 mb-1">Carta no encontrada</h1>
+        <p className="text-stone-500 mb-6 text-xs max-w-xs">{error}</p>
         <a
           href="/"
-          className="px-6 py-3 bg-red-600 text-white rounded-full font-bold hover:bg-red-700 transition text-sm"
+          className="px-5 py-2.5 bg-stone-900 text-white rounded-xl font-medium hover:bg-stone-800 transition text-xs"
         >
           Crear mi propia carta
         </a>
@@ -114,167 +127,170 @@ export default function PublicPage() {
   }
 
   return (
-    <main className="min-h-screen bg-amber-50 flex flex-col items-center p-3 md:p-8 font-serif text-slate-800">
+    <main className="min-h-screen bg-[#FAF8F5] flex flex-col items-center px-4 py-8 md:py-14 text-stone-900 selection:bg-amber-200">
       {showDonate && <DonationModal onClose={() => setShowDonate(false)} />}
 
+      {/* LIGHTBOX DE IMAGEN */}
       {showImageModal && (
         <div
-          className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4 cursor-zoom-out"
+          className="fixed inset-0 bg-stone-950/90 z-50 flex items-center justify-center p-4 cursor-zoom-out backdrop-blur-xs"
           onClick={() => setShowImageModal(false)}
         >
+          <button
+            className="absolute top-5 right-5 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition"
+            aria-label="Cerrar imagen"
+          >
+            <X className="w-5 h-5" />
+          </button>
           <img
             src={profile.image}
             onError={(e) => {
               e.currentTarget.onerror = null;
               e.currentTarget.src = "/guts.png";
             }}
-            className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+            className="max-w-full max-h-[90vh] object-contain rounded-2xl shadow-2xl"
             alt="Imagen ampliada"
           />
         </div>
       )}
 
-      <div className="max-w-2xl w-full bg-white p-5 md:p-8 rounded-2xl shadow-xl border-4 border-yellow-500 relative overflow-hidden my-2">
-        <div className="absolute top-0 left-0 w-full h-3 bg-red-600" />
+      {/* TARJETA EDITORIAL DE LA CARTA */}
+      <article className="max-w-xl w-full bg-white p-6 sm:p-10 rounded-3xl shadow-sm border border-stone-200/80">
+        {/* CABECERA */}
+        <header className="text-center mb-8">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200/60 text-amber-700 text-[11px] font-medium mb-3">
+            <Crown className="w-3.5 h-3.5" />
+            <span>Carta a los Reyes Magos</span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-stone-900">
+            Lista de @{profile.username}
+          </h1>
 
-        <h1 className="text-3xl md:text-4xl font-bold text-center text-red-700 mb-1 mt-3">
-          👑👑👑
-        </h1>
-        <h2 className="text-2xl md:text-3xl font-bold text-center text-slate-800">
-          Carta a los Reyes Magos
-        </h2>
-        <p className="text-center text-xs font-sans uppercase tracking-widest text-amber-700 font-bold mt-1 mb-5">
-          De: @{profile.username}
-        </p>
+          {profile.title && (
+            <p className="mt-4 text-stone-600 text-sm leading-relaxed whitespace-pre-line bg-[#FAF8F5] p-4 rounded-2xl border border-stone-200/60 italic">
+              &ldquo;{profile.title}&rdquo;
+            </p>
+          )}
+        </header>
 
-        <p className="text-center text-slate-600 mb-6 italic text-base md:text-lg whitespace-pre-line bg-amber-50/60 p-4 rounded-xl border border-amber-200/60">
-          &ldquo;{profile.title}&rdquo;
-        </p>
-
-        {/* AVISO DE COORDINACIÓN PARA FAMILIARES */}
+        {/* BANNER DE MODO REY MAGO / DUEÑO */}
         {!isOwnerViewing ? (
-          <div className="mb-5 bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs font-sans text-emerald-900 flex items-center justify-between gap-2">
-            <span>
-              🤫 <strong>Modo Rey Mago:</strong> Si vas a comprar algo, márcalo como{" "}
-              <em>&ldquo;Lo pido&rdquo;</em> para que otro familiar no lo compre repetido. (
-              @{profile.username} no verá qué regalos están reservados).
-            </span>
+          <div className="mb-6 bg-stone-900 text-stone-100 rounded-2xl p-3.5 text-xs flex items-start gap-3">
+            <Sparkles className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <div className="leading-relaxed">
+              <span className="font-semibold text-white">Modo Rey Mago:</span> Si vas a regalar
+              algo de esta lista, pulsa en{" "}
+              <span className="underline decoration-amber-400">Reservar</span> para que otro
+              familiar no lo compre repetido. (@{profile.username} no verá las reservas).
+            </div>
           </div>
         ) : (
-          <div className="mb-5 bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs font-sans text-amber-900 flex items-center justify-between">
+          <div className="mb-6 bg-amber-50/70 border border-amber-200/70 rounded-2xl p-3.5 text-xs text-stone-700 flex items-center justify-between gap-2">
             <span>
-              👀 Estás viendo tu propia carta. Las reservas de tus Reyes Magos están ocultas para no arruinarte la sorpresa.
+              👀 Vista previa de tu carta (las reservas de tus familiares están ocultas).
             </span>
-            <a href="/" className="font-bold underline shrink-0 ml-2">
-              Editar lista
+            <a
+              href="/"
+              className="font-semibold text-stone-900 underline shrink-0 hover:text-amber-700"
+            >
+              Editar
             </a>
           </div>
         )}
 
-        {/* LISTA DE REGALOS */}
-        <div className="space-y-3 mb-8 font-sans">
+        {/* LISTA DE DESEOS */}
+        <div className="space-y-2.5 mb-8">
           {wishes.length === 0 ? (
-            <p className="text-center text-gray-400 italic py-6">
-              Esta lista está vacía... ¡Aún!
+            <p className="text-center text-stone-400 text-xs py-10 border border-dashed border-stone-200 rounded-2xl">
+              Esta carta aún no tiene deseos anotados.
             </p>
           ) : (
             wishes.map((wish, index) => {
-              const reservedHiddenForOwner = !isOwnerViewing && wish.is_reserved;
+              const isReservedVisible = !isOwnerViewing && wish.is_reserved;
 
               return (
                 <div
                   key={wish.id || index}
-                  className={`flex flex-col sm:flex-row justify-between items-start sm:items-center p-3.5 rounded-xl border-l-4 shadow-xs gap-3 transition ${
-                    reservedHiddenForOwner
-                      ? "bg-slate-100/70 border-slate-400 opacity-75"
-                      : "bg-slate-50 border-emerald-600"
+                  className={`group flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl border transition gap-3 ${
+                    isReservedVisible
+                      ? "bg-stone-50/80 border-stone-200/60 opacity-65"
+                      : "bg-white border-stone-200/90 hover:border-stone-300 shadow-2xs"
                   }`}
                 >
-                  <div className="w-full">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span
-                        className={`text-base font-medium break-words ${
-                          reservedHiddenForOwner ? "line-through text-slate-500" : "text-slate-800"
-                        }`}
-                      >
-                        {wish.text}
-                      </span>
-                      {wish.price && (
-                        <span className="text-xs bg-amber-100 text-amber-900 px-2 py-0.5 rounded-full font-bold">
-                          ~{wish.price}
+                  <div className="flex items-start gap-3">
+                    <span className="text-xs font-mono text-stone-400 mt-0.5 select-none">
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span
+                          className={`text-sm font-medium break-words ${
+                            isReservedVisible ? "line-through text-stone-400" : "text-stone-900"
+                          }`}
+                        >
+                          {wish.text}
+                        </span>
+                        {wish.price && (
+                          <span className="text-[11px] bg-stone-100 text-stone-600 px-2 py-0.5 rounded-md font-medium">
+                            ~{wish.price}
+                          </span>
+                        )}
+                      </div>
+
+                      {isReservedVisible && (
+                        <span className="inline-flex items-center gap-1 text-[11px] text-amber-700 font-medium mt-1">
+                          <Crown className="w-3 h-3" />
+                          <span>Ya reservado por un Rey Mago</span>
                         </span>
                       )}
                     </div>
-                    {reservedHiddenForOwner && (
-                      <span className="inline-block text-xs text-emerald-700 font-bold mt-1">
-                        👑 Ya reservado por un Rey Mago
-                      </span>
-                    )}
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                    {/* Si el usuario puso un enlace exacto, destacarlo */}
+                  {/* ACCIONES DEL REGALO */}
+                  <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0">
                     {wish.url && (
                       <a
                         href={wish.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-2 rounded-lg transition shadow-xs"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-medium transition"
+                        title="Abrir enlace exacto"
                       >
-                        🔗 Ver exacto
+                        <span>Ver enlace</span>
+                        <ExternalLink className="w-3 h-3" />
                       </a>
                     )}
 
-                    {/* Botón Google */}
                     <a
                       href={`https://www.google.com/search?q=${encodeURIComponent(wish.text)}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="bg-white border border-gray-200 hover:border-blue-400 p-2 rounded-lg transition shadow-xs"
+                      className="p-2 rounded-xl border border-stone-200 text-stone-500 hover:text-stone-900 hover:bg-stone-50 transition"
                       title="Buscar en Google"
                     >
-                      <svg viewBox="0 0 24 24" width="18" height="18">
-                        <path
-                          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                          fill="#4285F4"
-                        />
-                        <path
-                          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                          fill="#34A853"
-                        />
-                        <path
-                          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                          fill="#FBBC05"
-                        />
-                        <path
-                          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                          fill="#EA4335"
-                        />
-                      </svg>
+                      <Search className="w-3.5 h-3.5" />
                     </a>
 
-                    {/* Botón Amazon */}
                     <a
                       href={`https://www.amazon.es/s?k=${encodeURIComponent(wish.text)}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="bg-white border border-gray-200 hover:border-yellow-500 p-2 rounded-lg transition shadow-xs flex items-center justify-center w-9 h-9"
+                      className="p-2 rounded-xl border border-stone-200 text-stone-500 hover:text-amber-600 hover:bg-amber-50/50 transition"
                       title="Buscar en Amazon"
                     >
-                      <img src="/amazon.png" alt="Amazon" className="w-5 h-5 object-contain" />
+                      <ShoppingBag className="w-3.5 h-3.5" />
                     </a>
 
-                    {/* Botón Reservar (Solo visible si NO es el dueño) */}
                     {!isOwnerViewing && (
                       <button
                         onClick={() => toggleReserveWish(wish)}
-                        className={`text-xs font-bold px-3 py-2 rounded-lg border transition ${
+                        className={`ml-1 px-3 py-1.5 rounded-xl text-xs font-medium transition ${
                           wish.is_reserved
-                            ? "bg-slate-200 border-slate-300 text-slate-700 hover:bg-slate-300"
-                            : "bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-700"
+                            ? "bg-stone-200 text-stone-700 hover:bg-stone-300"
+                            : "bg-stone-900 text-white hover:bg-stone-800"
                         }`}
                       >
-                        {wish.is_reserved ? "Liberar" : "👑 Lo pido"}
+                        {wish.is_reserved ? "Liberar" : "Reservar"}
                       </button>
                     )}
                   </div>
@@ -284,44 +300,64 @@ export default function PublicPage() {
           )}
         </div>
 
-        {/* IMAGEN DE LA CARTA */}
-        <div className="mt-6">
-          <img
-            src={profile.image}
-            onError={(e) => {
-              e.currentTarget.onerror = null;
-              e.currentTarget.src = "/guts.png";
-            }}
-            className="w-full h-auto rounded-xl shadow-xs border-2 border-amber-500/30 object-cover max-h-[380px] cursor-zoom-in hover:opacity-95 transition"
-            onClick={() => setShowImageModal(true)}
-            alt="Imagen de la carta"
-          />
+        {/* IMAGEN DE CIERRE */}
+        {profile.image && (
+          <div className="mt-6">
+            <div
+              onClick={() => setShowImageModal(true)}
+              className="group relative rounded-2xl overflow-hidden border border-stone-200/80 bg-stone-100 cursor-zoom-in"
+            >
+              <img
+                src={profile.image}
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = "/guts.png";
+                }}
+                className="w-full h-auto max-h-[360px] object-cover group-hover:scale-[1.01] transition duration-300"
+                alt="Postal de la carta"
+              />
+            </div>
+          </div>
+        )}
+      </article>
+
+      {/* FOOTER MINIMALISTA */}
+      <footer className="mt-8 flex flex-col items-center gap-4 text-center">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleShare}
+            className={`px-4 py-2 rounded-xl text-xs font-medium transition flex items-center gap-1.5 border ${
+              copied
+                ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                : "bg-white border-stone-200 text-stone-700 hover:bg-stone-50"
+            }`}
+          >
+            {copied ? (
+              <>
+                <Check className="w-3.5 h-3.5" />
+                <span>Enlace copiado</span>
+              </>
+            ) : (
+              <>
+                <Copy className="w-3.5 h-3.5" />
+                <span>Compartir carta</span>
+              </>
+            )}
+          </button>
+
+          <button
+            onClick={() => setShowDonate(true)}
+            className="px-4 py-2 rounded-xl text-xs font-medium bg-white border border-stone-200 text-stone-600 hover:bg-stone-50 transition flex items-center gap-1.5"
+          >
+            <Coffee className="w-3.5 h-3.5 text-amber-600" />
+            <span>Apoyar</span>
+          </button>
         </div>
-      </div>
 
-      <footer className="mt-6 text-amber-800/70 text-xs md:text-sm text-center pb-8 flex flex-col gap-3 font-sans">
-        <button
-          onClick={handleShare}
-          className={`px-5 py-2.5 rounded-full font-bold transition text-sm flex items-center justify-center gap-2 mx-auto shadow-xs border ${
-            copied
-              ? "bg-green-100 border-green-300 text-green-800"
-              : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
-          }`}
-        >
-          {copied ? "✅ ¡Enlace Copiado!" : "🔗 Copiar enlace de esta carta"}
-        </button>
-
-        <button
-          onClick={() => setShowDonate(true)}
-          className="bg-amber-100 border border-amber-300 text-amber-900 px-5 py-2 rounded-full font-bold hover:bg-amber-200 transition text-sm flex items-center justify-center gap-2 mx-auto shadow-xs"
-        >
-          ☕ Apoyar al creador
-        </button>
-
-        <p className="pt-3">
-          ¿Quieres hacer tu propia carta a los Reyes Magos? <br />
-          <a href="/" className="font-bold underline text-red-700 hover:text-red-800">
-            Créala gratis en 5 segundos aquí
+        <p className="text-xs text-stone-400">
+          ¿Quieres escribir la tuya?{" "}
+          <a href="/" className="text-stone-800 font-medium underline hover:text-amber-700">
+            Crear mi carta gratis
           </a>
         </p>
       </footer>
