@@ -1,3 +1,4 @@
+// app/page.js
 "use client";
 import { useState, useEffect } from "react";
 import { supabase } from "./supabase";
@@ -18,6 +19,9 @@ import {
   ChevronDown,
   ChevronUp,
   Sparkles,
+  Globe,
+  Lock,
+  Compass,
 } from "lucide-react";
 
 export default function Dashboard() {
@@ -40,9 +44,10 @@ export default function Dashboard() {
   const [newWishPrice, setNewWishPrice] = useState("");
   const [showExtraFields, setShowExtraFields] = useState(false);
 
-  // Perfil
+  // Perfil y Visibilidad Pública
   const [customTitle, setCustomTitle] = useState("Este año he intentado portarme muy bien...");
   const [customImage, setCustomImage] = useState("/guts.png");
+  const [isPublic, setIsPublic] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -55,6 +60,7 @@ export default function Dashboard() {
       setUser(parsed);
       setCustomTitle(parsed.title || "Este año he intentado portarme muy bien...");
       setCustomImage(parsed.image || "/guts.png");
+      setIsPublic(Boolean(parsed.is_public));
       fetchWishes(parsed.username);
     } else {
       setLoading(false);
@@ -114,6 +120,7 @@ export default function Dashboard() {
           pin: pinInput,
           title: "Queridos Reyes Magos, este año me he portado genial y esta es mi lista de deseos:",
           image: "/guts.png",
+          is_public: false,
         };
 
         const { error: insertError } = await supabase.from("profiles").insert([newProfile]);
@@ -123,16 +130,18 @@ export default function Dashboard() {
           username: newProfile.username,
           title: newProfile.title,
           image: newProfile.image,
+          is_public: false,
         };
         localStorage.setItem("carta_reyes_user", JSON.stringify(sessionData));
         setUser(sessionData);
         setCustomTitle(sessionData.title);
         setCustomImage(sessionData.image);
+        setIsPublic(false);
         setWishes([]);
       } else {
         const { data, error } = await supabase
           .from("profiles")
-          .select("username, title, image, pin")
+          .select("username, title, image, is_public, pin")
           .eq("username", cleanUsername)
           .maybeSingle();
 
@@ -146,11 +155,13 @@ export default function Dashboard() {
           username: data.username,
           title: data.title,
           image: data.image,
+          is_public: Boolean(data.is_public),
         };
         localStorage.setItem("carta_reyes_user", JSON.stringify(sessionData));
         setUser(sessionData);
         setCustomTitle(data.title);
         setCustomImage(data.image);
+        setIsPublic(Boolean(data.is_public));
         fetchWishes(data.username);
       }
     } catch (err) {
@@ -168,16 +179,41 @@ export default function Dashboard() {
     setPinInput("");
   };
 
+  // Cambiar visibilidad pública/privada al instante
+  const handleTogglePublic = async () => {
+    if (!user) return;
+    const nextValue = !isPublic;
+    setIsPublic(nextValue);
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ is_public: nextValue })
+      .eq("username", user.username);
+
+    if (!error) {
+      const updated = { ...user, is_public: nextValue };
+      setUser(updated);
+      localStorage.setItem("carta_reyes_user", JSON.stringify(updated));
+    } else {
+      setIsPublic(!nextValue); // Revertir si falla
+    }
+  };
+
   const handleSaveProfile = async () => {
     if (!user) return;
     setIsSavingProfile(true);
     const { error } = await supabase
       .from("profiles")
-      .update({ title: customTitle, image: customImage })
+      .update({ title: customTitle, image: customImage, is_public: isPublic })
       .eq("username", user.username);
 
     if (!error) {
-      const updated = { ...user, title: customTitle, image: customImage };
+      const updated = {
+        ...user,
+        title: customTitle,
+        image: customImage,
+        is_public: isPublic,
+      };
       setUser(updated);
       localStorage.setItem("carta_reyes_user", JSON.stringify(updated));
       setSavedSuccess(true);
@@ -245,13 +281,13 @@ export default function Dashboard() {
 
   if (!enabled) return null;
 
-  // --- LOGIN / REGISTRO MINIMALISTA ---
+  // --- LOGIN / REGISTRO ---
   if (!user) {
     return (
       <main className="min-h-screen bg-[#FAF8F5] flex flex-col items-center justify-center p-4 text-stone-900 selection:bg-amber-200">
         {showDonate && <DonationModal onClose={() => setShowDonate(false)} />}
 
-        <div className="max-w-sm w-full bg-white p-7 rounded-3xl shadow-sm border border-stone-200/80 mb-6">
+        <div className="max-w-sm w-full bg-white p-7 rounded-3xl shadow-sm border border-stone-200/80 mb-5">
           <div className="flex flex-col items-center text-center mb-6">
             <div className="w-11 h-11 bg-amber-50 border border-amber-200/60 text-amber-600 rounded-2xl flex items-center justify-center mb-3 shadow-2xs">
               <Crown className="w-5 h-5" />
@@ -264,7 +300,6 @@ export default function Dashboard() {
             </p>
           </div>
 
-          {/* Selector de pestañas estilo iOS */}
           <div className="grid grid-cols-2 p-1 bg-stone-100 rounded-xl mb-6 text-xs font-medium">
             <button
               type="button"
@@ -312,12 +347,6 @@ export default function Dashboard() {
                 autoComplete="username"
                 className="w-full px-3.5 py-2.5 bg-stone-50/70 border border-stone-200 rounded-xl text-sm focus:bg-white focus:border-stone-900 transition outline-none"
               />
-              {usernameInput && (
-                <p className="text-[11px] text-stone-400 mt-1.5 flex items-center gap-1">
-                  <span>Enlace público:</span>
-                  <span className="font-mono text-stone-600">/u/{usernameInput}</span>
-                </p>
-              )}
             </div>
 
             <div>
@@ -357,18 +386,29 @@ export default function Dashboard() {
           </form>
         </div>
 
-        <button
-          onClick={() => setShowDonate(true)}
-          className="text-stone-500 hover:text-stone-800 text-xs font-medium flex items-center gap-1.5 transition"
-        >
-          <Coffee className="w-3.5 h-3.5" />
-          <span>Apoyar el proyecto</span>
-        </button>
+        {/* BOTÓN PARA EXPLORAR CARTAS PÚBLICAS SIN LOGUEARSE */}
+        <div className="flex flex-col items-center gap-3">
+          <a
+            href="/explorar"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white border border-stone-200/90 shadow-2xs text-xs font-medium text-stone-700 hover:border-stone-400 transition"
+          >
+            <Compass className="w-4 h-4 text-amber-600" />
+            <span>Explorar cartas públicas de la gente</span>
+          </a>
+
+          <button
+            onClick={() => setShowDonate(true)}
+            className="text-stone-400 hover:text-stone-700 text-xs font-medium flex items-center gap-1.5 transition mt-1"
+          >
+            <Coffee className="w-3.5 h-3.5" />
+            <span>Apoyar el proyecto</span>
+          </button>
+        </div>
       </main>
     );
   }
 
-  // --- PANEL DE EDICIÓN MINIMALISTA ---
+  // --- DASHBOARD ---
   return (
     <div className="min-h-screen bg-[#FAF8F5] text-stone-900">
       {showDonate && <DonationModal onClose={() => setShowDonate(false)} />}
@@ -380,12 +420,18 @@ export default function Dashboard() {
             <div className="w-8 h-8 bg-amber-50 border border-amber-200/70 text-amber-600 rounded-xl flex items-center justify-center">
               <Crown className="w-4 h-4" />
             </div>
-            <div>
-              <span className="text-sm font-semibold tracking-tight">@{user.username}</span>
-            </div>
+            <span className="text-sm font-semibold tracking-tight">@{user.username}</span>
           </div>
 
           <div className="flex items-center gap-2">
+            <a
+              href="/explorar"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-white border border-stone-200 text-stone-700 hover:bg-stone-50 transition"
+            >
+              <Compass className="w-3.5 h-3.5 text-amber-600" />
+              <span className="hidden sm:inline">Explorar cartas</span>
+            </a>
+
             <button
               onClick={copyPublicUrl}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition ${
@@ -397,12 +443,12 @@ export default function Dashboard() {
               {copiedLink ? (
                 <>
                   <Check className="w-3.5 h-3.5" />
-                  <span>Copiado</span>
+                  <span className="hidden sm:inline">Copiado</span>
                 </>
               ) : (
                 <>
                   <Copy className="w-3.5 h-3.5" />
-                  <span>Copiar enlace</span>
+                  <span className="hidden sm:inline">Copiar enlace</span>
                 </>
               )}
             </button>
@@ -412,8 +458,7 @@ export default function Dashboard() {
               target="_blank"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-stone-900 text-white hover:bg-stone-800 transition"
             >
-              <span className="hidden sm:inline">Ver carta pública</span>
-              <span className="sm:hidden">Ver</span>
+              <span>Mi carta</span>
               <ExternalLink className="w-3.5 h-3.5" />
             </a>
 
@@ -443,7 +488,6 @@ export default function Dashboard() {
             </span>
           </div>
 
-          {/* CAJA DE AÑADIR DESEO */}
           <form
             onSubmit={handleAddWish}
             className="bg-white p-3.5 rounded-2xl border border-stone-200/90 shadow-2xs transition focus-within:border-stone-400"
@@ -512,7 +556,6 @@ export default function Dashboard() {
             </div>
           </form>
 
-          {/* LISTA DRAG & DROP */}
           <DragDropContext onDragEnd={handleOnDragEnd}>
             <Droppable droppableId="wishesList">
               {(provided) => (
@@ -597,13 +640,59 @@ export default function Dashboard() {
           </DragDropContext>
         </section>
 
-        {/* COLUMNA LATERAL (5 cols): PERSONALIZACIÓN DE LA CARTA */}
+        {/* COLUMNA LATERAL (5 cols): VISIBILIDAD Y PERSONALIZACIÓN */}
         <aside className="lg:col-span-5 space-y-5">
+          {/* INTERRUPTOR DE VISIBILIDAD EN EL MURO PÚBLICO */}
+          <div className="bg-white p-5 rounded-2xl border border-stone-200/80 shadow-2xs">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div
+                  className={`p-2 rounded-xl border mt-0.5 ${
+                    isPublic
+                      ? "bg-emerald-50 border-emerald-200 text-emerald-600"
+                      : "bg-stone-100 border-stone-200 text-stone-500"
+                  }`}
+                >
+                  {isPublic ? <Globe className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                </div>
+                <div>
+                  <h2 className="text-sm font-semibold tracking-tight">
+                    {isPublic ? "Visible en el muro público" : "Solo mediante enlace"}
+                  </h2>
+                  <p className="text-xs text-stone-500 mt-0.5 leading-relaxed">
+                    {isPublic
+                      ? "Cualquier persona puede encontrar tu carta en la sección Explorar sin tener el enlace."
+                      : "Solo quienes tengan tu enlace directo (/u/" +
+                        user.username +
+                        ") pueden ver tu carta."}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                role="switch"
+                aria-checked={isPublic}
+                onClick={handleTogglePublic}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                  isPublic ? "bg-emerald-600" : "bg-stone-200"
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-xs transition duration-200 ease-in-out ${
+                    isPublic ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
+          {/* PERSONALIZACIÓN DE LA CARTA */}
           <div className="bg-white p-5 rounded-2xl border border-stone-200/80 shadow-2xs space-y-4">
             <div>
               <h2 className="text-sm font-semibold tracking-tight">Apariencia de la carta</h2>
               <p className="text-xs text-stone-500">
-                Personaliza la nota y la imagen que verán al abrir tu enlace
+                Personaliza la nota y la imagen que verán al abrir tu carta
               </p>
             </div>
 
@@ -670,14 +759,6 @@ export default function Dashboard() {
                 "Guardar apariencia"
               )}
             </button>
-          </div>
-
-          {/* CAJA INFORMATIVA ANTI-SPOILER */}
-          <div className="bg-amber-50/60 border border-amber-200/60 p-4 rounded-2xl text-xs text-stone-600 leading-relaxed">
-            <p className="font-medium text-stone-800 mb-1">🤫 Sistema Anti-Spoiler activo</p>
-            Cuando compartas tu enlace, tus familiares podrán marcar regalos como{" "}
-            <span className="font-medium text-stone-800">&ldquo;Reservado&rdquo;</span> para no
-            comprarlos repetidos. Tú nunca verás cuáles están reservados desde tu cuenta.
           </div>
 
           <button

@@ -359,6 +359,7 @@ export default function PublicPage() {
           <a href="/" className="text-stone-800 font-medium underline hover:text-amber-700">
             Crear mi carta gratis
           </a>
+          <a href="/explorar">Ver cartas de otra gente</a>
         </p>
       </footer>
     </main>
