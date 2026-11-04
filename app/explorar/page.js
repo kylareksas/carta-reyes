@@ -16,25 +16,51 @@ export default function ExplorePage() {
   const [letters, setLetters] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
     const fetchPublicLetters = async () => {
       setLoading(true);
-      // Traemos los perfiles públicos y sus deseos asociados en una sola consulta
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("username, title, image, created_at, wishes(id, text, sort_order)")
-        .eq("is_public", true)
-        .order("created_at", { ascending: false });
+      setErrorMsg("");
 
-if (!error && data) {
-        // Ordenamos los deseos de cada perfil sin ocultar las cartas con 0 deseos
-        const validLetters = data.map((profile) => ({
+      try {
+        // 1. Traemos todos los perfiles públicos (consulta simple que nunca falla)
+        const { data: profilesData, error: profilesError } = await supabase
+          .from("profiles")
+          .select("username, title, image, created_at")
+          .eq("is_public", true)
+          .order("created_at", { ascending: false });
+
+        if (profilesError) throw profilesError;
+
+        if (!profilesData || profilesData.length === 0) {
+          setLetters([]);
+          return;
+        }
+
+        // 2. Traemos los deseos de esos usuarios públicos
+        const usernames = profilesData.map((p) => p.username);
+        const { data: wishesData, error: wishesError } = await supabase
+          .from("wishes")
+          .select("id, username, text, sort_order")
+          .in("username", usernames)
+          .order("sort_order", { ascending: true });
+
+        if (wishesError) throw wishesError;
+
+        // 3. Unimos cada perfil con sus deseos (mostrando también los que tienen 0 deseos)
+        const combined = profilesData.map((profile) => ({
           ...profile,
-          wishes: (profile.wishes || []).sort((a, b) => a.sort_order - b.sort_order),
+          wishes: (wishesData || []).filter((w) => w.username === profile.username),
         }));
 
-        setLetters(validLetters);
+        setLetters(combined);
+      } catch (err) {
+        console.error("Error cargando el muro público:", err);
+        setErrorMsg(err.message || "Error al cargar las cartas.");
+      } finally {
+        // El finally garantiza que NUNCA se quede pillado en los esqueletos grises
+        setLoading(false);
       }
     };
 
@@ -94,6 +120,13 @@ if (!error && data) {
             />
           </div>
         </div>
+
+        {/* MENSAJE DE ERROR SI FALLA SUPABASE */}
+        {errorMsg && (
+          <div className="max-w-md mx-auto mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-2xl text-xs text-center">
+            ⚠️ Hubo un problema al conectar: {errorMsg}
+          </div>
+        )}
 
         {/* LISTADO DE CARTAS */}
         {loading ? (
@@ -160,7 +193,7 @@ if (!error && data) {
                     </p>
                   )}
 
-{/* Vista previa de los 2 primeros deseos o aviso de lista vacía */}
+                  {/* Vista previa de los 2 primeros deseos o aviso de lista vacía */}
                   <div className="space-y-1.5 mb-4">
                     {item.wishes.length === 0 ? (
                       <div className="text-xs text-stone-400 italic bg-stone-50/60 px-3 py-2 rounded-lg border border-dashed border-stone-200 text-center">
