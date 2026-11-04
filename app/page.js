@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "./supabase";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import DonationModal from "./components/DonationModal";
+import WhatsNewBanner from "./components/WhatsNewBanner";
 import {
   Crown,
   Plus,
@@ -286,7 +287,7 @@ export default function Dashboard() {
     return (
       <main className="min-h-screen bg-[#FAF8F5] flex flex-col items-center justify-center p-4 text-stone-900 selection:bg-amber-200">
         {showDonate && <DonationModal onClose={() => setShowDonate(false)} />}
-
+          <WhatsNewBanner />
         <div className="max-w-sm w-full bg-white p-7 rounded-3xl shadow-sm border border-stone-200/80 mb-5">
           <div className="flex flex-col items-center text-center mb-6">
             <div className="w-11 h-11 bg-amber-50 border border-amber-200/60 text-amber-600 rounded-2xl flex items-center justify-center mb-3 shadow-2xs">
@@ -411,8 +412,8 @@ export default function Dashboard() {
   // --- DASHBOARD ---
   return (
     <div className="min-h-screen bg-[#FAF8F5] text-stone-900">
-      {showDonate && <DonationModal onClose={() => setShowDonate(false)} />}
-
+{showDonate && <DonationModal onClose={() => setShowDonate(false)} />}
+<WhatsNewBanner />
       {/* NAVBAR SUPERIOR */}
       <header className="sticky top-0 z-30 bg-[#FAF8F5]/80 backdrop-blur-md border-b border-stone-200/70">
         <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
