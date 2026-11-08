@@ -23,6 +23,8 @@ import {
   Globe,
   Lock,
   Compass,
+  Pencil,
+  X
 } from "lucide-react";
 
 export default function Dashboard() {
@@ -40,10 +42,10 @@ export default function Dashboard() {
   const [authLoading, setAuthLoading] = useState(false);
 
   // Nuevo deseo
-  const [newWishText, setNewWishText] = useState("");
-  const [newWishUrl, setNewWishUrl] = useState("");
-  const [newWishPrice, setNewWishPrice] = useState("");
-  const [showExtraFields, setShowExtraFields] = useState(false);
+  const [editingWishId, setEditingWishId] = useState(null);
+  const [editWishText, setEditWishText] = useState("");
+  const [editWishUrl, setEditWishUrl] = useState("");
+  const [editWishPrice, setEditWishPrice] = useState("");
 
   // Perfil y Visibilidad Pública
   const [customTitle, setCustomTitle] = useState("Este año he intentado portarme muy bien...");
@@ -254,6 +256,46 @@ export default function Dashboard() {
   const handleDeleteWish = async (id) => {
     setWishes(wishes.filter((w) => w.id !== id));
     await supabase.from("wishes").delete().eq("id", id);
+  };
+
+  const handleEditClick = (wish) => {
+    setEditingWishId(wish.id);
+    setEditWishText(wish.text);
+    setEditWishUrl(wish.url || "");
+    setEditWishPrice(wish.price || "");
+  };
+
+  const handleCancelEdit = () => {
+    setEditingWishId(null);
+  };
+
+  const handleSaveEdit = async (id) => {
+    if (!editWishText.trim()) return;
+
+    // 1. Actualización optimista en la interfaz
+    setWishes(wishes.map(w => w.id === id ? {
+      ...w, 
+      text: editWishText.trim(), 
+      url: editWishUrl.trim(), 
+      price: editWishPrice.trim()
+    } : w));
+    
+    setEditingWishId(null);
+
+    // 2. Guardar en Supabase
+    const { error } = await supabase
+      .from("wishes")
+      .update({ 
+        text: editWishText.trim(), 
+        url: editWishUrl.trim(), 
+        price: editWishPrice.trim() 
+      })
+      .eq("id", id);
+
+    if (error) {
+      alert("Error al actualizar el regalo");
+      console.error(error);
+    }
   };
 
   const handleOnDragEnd = async (result) => {
@@ -584,52 +626,114 @@ export default function Dashboard() {
                             snapshot.isDragging
                               ? "shadow-lg border-stone-900 scale-[1.01] z-10"
                               : "border-stone-200/80 hover:border-stone-300"
-                          }`}
+                          } ${editingWishId === wish.id ? "ring-2 ring-stone-900 border-transparent" : ""}`}
                         >
-                          <div className="flex items-center gap-3 overflow-hidden pr-2">
-                            <div
-                              {...provided.dragHandleProps}
-                              className="text-stone-300 hover:text-stone-500 cursor-grab active:cursor-grabbing p-1 -ml-1"
-                            >
-                              <GripVertical className="w-4 h-4" />
+                          {/* --- MODO EDICIÓN --- */}
+                          {editingWishId === wish.id ? (
+                            <div className="w-full flex flex-col gap-2 py-1">
+                              <input
+                                type="text"
+                                value={editWishText}
+                                onChange={(e) => setEditWishText(e.target.value)}
+                                className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm outline-none focus:bg-white focus:border-stone-900 transition"
+                                placeholder="Nombre del regalo..."
+                                autoFocus
+                              />
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <div className="flex items-center gap-2 bg-stone-50 px-3 py-1.5 rounded-xl border border-stone-200 focus-within:bg-white focus-within:border-stone-900 transition">
+                                  <LinkIcon className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+                                  <input
+                                    type="url"
+                                    value={editWishUrl}
+                                    onChange={(e) => setEditWishUrl(e.target.value)}
+                                    placeholder="Enlace (opcional)"
+                                    className="w-full bg-transparent text-xs outline-none"
+                                  />
+                                </div>
+                                <div className="flex items-center gap-2 bg-stone-50 px-3 py-1.5 rounded-xl border border-stone-200 focus-within:bg-white focus-within:border-stone-900 transition">
+                                  <span className="text-xs text-stone-400">€</span>
+                                  <input
+                                    type="text"
+                                    value={editWishPrice}
+                                    onChange={(e) => setEditWishPrice(e.target.value)}
+                                    placeholder="Precio (opcional)"
+                                    className="w-full bg-transparent text-xs outline-none"
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-end gap-2 mt-1">
+                                <button
+                                  onClick={handleCancelEdit}
+                                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-stone-500 hover:bg-stone-100 transition"
+                                >
+                                  Cancelar
+                                </button>
+                                <button
+                                  onClick={() => handleSaveEdit(wish.id)}
+                                  className="px-4 py-1.5 rounded-lg text-xs font-medium bg-stone-900 text-white hover:bg-stone-800 transition"
+                                >
+                                  Guardar
+                                </button>
+                              </div>
                             </div>
-                            <span className="text-xs font-mono text-stone-400 select-none">
-                              {String(index + 1).padStart(2, "0")}
-                            </span>
-                            <div className="overflow-hidden">
-                              <p className="text-sm font-medium text-stone-800 break-words">
-                                {wish.text}
-                              </p>
-                              {(wish.price || wish.url) && (
-                                <div className="flex items-center gap-2 mt-1">
-                                  {wish.price && (
-                                    <span className="text-[11px] bg-stone-100 text-stone-600 px-2 py-0.5 rounded-md font-medium">
-                                      ~{wish.price}
-                                    </span>
-                                  )}
-                                  {wish.url && (
-                                    <a
-                                      href={wish.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-[11px] text-amber-700 hover:underline flex items-center gap-0.5 truncate max-w-[200px]"
-                                    >
-                                      <LinkIcon className="w-2.5 h-2.5 shrink-0" />
-                                      <span>Enlace directo</span>
-                                    </a>
+                          ) : (
+                            /* --- MODO VISTA NORMAL --- */
+                            <>
+                              <div className="flex items-center gap-3 overflow-hidden pr-2">
+                                <div
+                                  {...provided.dragHandleProps}
+                                  className="text-stone-300 hover:text-stone-500 cursor-grab active:cursor-grabbing p-1 -ml-1"
+                                >
+                                  <GripVertical className="w-4 h-4" />
+                                </div>
+                                <span className="text-xs font-mono text-stone-400 select-none">
+                                  {String(index + 1).padStart(2, "0")}
+                                </span>
+                                <div className="overflow-hidden">
+                                  <p className="text-sm font-medium text-stone-800 break-words">
+                                    {wish.text}
+                                  </p>
+                                  {(wish.price || wish.url) && (
+                                    <div className="flex items-center gap-2 mt-1">
+                                      {wish.price && (
+                                        <span className="text-[11px] bg-stone-100 text-stone-600 px-2 py-0.5 rounded-md font-medium">
+                                          ~{wish.price}
+                                        </span>
+                                      )}
+                                      {wish.url && (
+                                        <a
+                                          href={wish.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-[11px] text-amber-700 hover:underline flex items-center gap-0.5 truncate max-w-[200px]"
+                                        >
+                                          <LinkIcon className="w-2.5 h-2.5 shrink-0" />
+                                          <span>Enlace</span>
+                                        </a>
+                                      )}
+                                    </div>
                                   )}
                                 </div>
-                              )}
-                            </div>
-                          </div>
+                              </div>
 
-                          <button
-                            onClick={() => handleDeleteWish(wish.id)}
-                            className="text-stone-300 hover:text-red-600 p-1.5 rounded-xl hover:bg-red-50 transition opacity-80 group-hover:opacity-100 shrink-0"
-                            title="Eliminar"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                              <div className="flex items-center gap-1 shrink-0 opacity-80 group-hover:opacity-100 transition">
+                                <button
+                                  onClick={() => handleEditClick(wish)}
+                                  className="p-1.5 text-stone-300 hover:text-blue-600 rounded-xl hover:bg-blue-50 transition"
+                                  title="Editar"
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteWish(wish.id)}
+                                  className="p-1.5 text-stone-300 hover:text-red-600 rounded-xl hover:bg-red-50 transition"
+                                  title="Eliminar"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </>
+                          )}
                         </div>
                       )}
                     </Draggable>
