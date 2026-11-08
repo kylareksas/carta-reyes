@@ -41,7 +41,14 @@ export default function Dashboard() {
   const [authError, setAuthError] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
 
+  // --- ESTOS SON LOS QUE FALTAN O SE HAN BORRADO ---
   // Nuevo deseo
+  const [newWishText, setNewWishText] = useState("");
+  const [newWishUrl, setNewWishUrl] = useState("");
+  const [newWishPrice, setNewWishPrice] = useState("");
+  const [showExtraFields, setShowExtraFields] = useState(false);
+
+  // Estados para Edición de deseos (los que añadimos antes)
   const [editingWishId, setEditingWishId] = useState(null);
   const [editWishText, setEditWishText] = useState("");
   const [editWishUrl, setEditWishUrl] = useState("");
